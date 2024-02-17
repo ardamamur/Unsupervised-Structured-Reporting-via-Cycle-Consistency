@@ -1,4 +1,4 @@
-from src.models.ARK import ARKModel
+from models.ARK import ARKModel
 from torch import nn
 import torch
 import torch.nn as nn

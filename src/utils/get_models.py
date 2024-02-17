@@ -1,12 +1,13 @@
 from models.ARK import ARKModel
 from models.BioViL import BioViL
-from losses.Test_loss import ClassificationLoss
+from models.cGAN import cGANconv
+from losses.cosine_similarity import ClassificationLoss
 from models.Discriminator import ImageDiscriminator, ReportDiscriminator
 
 class Networks:
     def __init__(self, opt):
         self.opt = opt
-        self.num_classes = opt['dataset']['num_classes']
+        self.num_classes = opt['trainer']['num_classes']
         self.input_size = opt["dataset"]["input_size"]
         self.z_size = opt['image_generator']['z_size']
 
@@ -28,7 +29,7 @@ class Networks:
                     )
 
     def get_cosine_similarity(self):
-        return ClassificationLoss(env_settings.MASTER_LIST[self.['dataset']['data_imputation']])
+        return ClassificationLoss(env_settings.MASTER_LIST[self['dataset']['data_imputation']])
 
     
     def get_cgan(self):

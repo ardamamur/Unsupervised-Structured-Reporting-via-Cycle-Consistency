@@ -15,7 +15,7 @@ from models.buffer import ReportBuffer, ImageBuffer
 from utils.get_models import load_networks
 from losses.vgg import perceptual_vgg
 from losses.biovil import perceptual_biovil
-from losses.biovil_t import perceptual_biovil_vit
+from losses.biovil_vit import perceptual_biovil_vit
 from losses.ark_v1 import perceptual_ark_v1
 from losses.ark_v2 import perceptual_ark_v2
 from torchmetrics import Accuracy, Precision, Recall, F1Score
@@ -35,6 +35,7 @@ class CycleGAN(pl.LightningModule):
 
     def __init__(self, opt):
         super(CycleGAN, self).__init__()
+        self.opt = opt
         self.save_hyperparameters()
         self.initialize_variables()
         self.initialize_models()
@@ -43,16 +44,16 @@ class CycleGAN(pl.LightningModule):
         self.initialize_optimizers()
 
     def initialize_variables(self):
-        self.data_imputation = opt['dataset']['data_imputation']
-        self.input_size = opt["dataset"]["input_size"]
-        self.num_classes = opt['dataset']['num_classes']
-        self.batch_size = opt['dataset']['batch_size']
-        self.n_epochs = opt['trainer']['n_epoch']
-        self.z_size = opt['image_generator']['z_size']
-        self.save_images = opt['trainer']['save_images']
-        self.lambda_cycle = opt['trainer']['lambda_cycle']
-        self.buffer_size = opt['trainer']['buffer_size']
-        self.log_images_freq = opt['trainer']['log_images_steps']
+        self.data_imputation = self.opt['dataset']['data_imputation']
+        self.input_size = self.opt["dataset"]["input_size"]
+        self.num_classes = self.opt['trainer']['num_classes']
+        self.batch_size = self.opt['dataset']['batch_size']
+        self.n_epochs = self.opt['trainer']['n_epoch']
+        self.z_size = self.opt['image_generator']['z_size']
+        self.save_images = self.opt['trainer']['save_images']
+        self.lambda_cycle = self.opt['trainer']['lambda_cycle']
+        self.buffer_size = self.opt['trainer']['buffer_size']
+        self.log_images_freq = self.opt['trainer']['log_images_steps']
         if self.save_images:
             self.sample_dir = env_settings.SAVE_IMAGES_PATH
             os.makedirs(self.sample_dir, exist_ok=True)
@@ -70,52 +71,47 @@ class CycleGAN(pl.LightningModule):
             'Adam': ds.ops.adam.FusedAdam,
             'AdamW': torch.optim.AdamW,
         }
-        self.image_gen_optimizer = optimizer_dict[opt["image_generator"]["optimizer"]]
-        self.image_disc_optimizer = optimizer_dict[opt["image_discriminator"]["optimizer"]]
-        self.report_gen_optimizer = optimizer_dict[opt["report_generator"]["optimizer"]]
-        self.report_disc_optimizer = optimizer_dict[opt["report_discriminator"]["optimizer"]]
+        self.image_gen_optimizer = optimizer_dict[self.opt["image_generator"]["optimizer"]]
+        self.image_disc_optimizer = optimizer_dict[self.opt["image_discriminator"]["optimizer"]]
+        self.report_gen_optimizer = optimizer_dict[self.opt["report_generator"]["optimizer"]]
+        self.report_disc_optimizer = optimizer_dict[self.opt["report_discriminator"]["optimizer"]]
 
     def initialize_losses(self):
-        self.img_consistency_loss = perceptual_biovil_bit()
+        self.img_consistency_loss = perceptual_biovil_vit()
         self.report_consistency_loss = nn.BCEWithLogitsLoss()
         self.report_adversarial_loss = nn.MSELoss()
-        self.image_adversarial_loss = nn.MSELoss()
+        self.img_adversarial_loss = nn.MSELoss()
         self.MSE = nn.MSELoss()
         self.L1 = nn.L1Loss()
 
     def initialize_metrics(self):
-        self.macro_accuracy = {
-            'train': Accuracy(task="multilabel", average="macro", num_labels=self.num_classes),
-            'val': Accuracy(task="multilabel", average="macro", num_labels=self.num_classes),
-        }
-        self.micro_accuracy = {
-            'train': Accuracy(task="multilabel", average="micro", num_labels=self.num_classes),
-            'val': Accuracy(task="multilabel", average="micro", num_labels=self.num_classes),
-        }
-        self.macro_f1 = {
-            'train': F1Score(task="multilabel", average="macro", num_labels=self.num_classes),
-            'val': F1Score(task="multilabel", average="macro", num_labels=self.num_classes),
-        }
-        self.micro_f1 = {
-            'train': F1Score(task="multilabel", average="micro", num_labels=self.num_classes),
-            'val': F1Score(task="multilabel", average="micro", num_labels=self.num_classes),
-        }
-        self.macro_precision = {
-            'train': Precision(task="multilabel", average="macro", num_labels=self.num_classes),
-            'val': Precision(task="multilabel", average="macro", num_labels=self.num_classes),
-        }
-        self.micro_precision = {
-            'train': Precision(task="multilabel", average="micro", num_labels=self.num_classes),
-            'val': Precision(task="multilabel", average="micro", num_labels=self.num_classes),
-        }
-        self.macro_recall = {
-            'train': Recall(task="multilabel", average="macro", num_labels=self.num_classes),
-            'val': Recall(task="multilabel", average="macro", num_labels=self.num_classes),
-        }
-        self.micro_recall = {
-            'train': Recall(task="multilabel", average="micro", num_labels=self.num_classes),
-            'val': Recall(task="multilabel", average="micro", num_labels=self.num_classes),
-        }
+        self.train_micro_accuracy =  Accuracy(task="multilabel", average="micro", num_labels=self.num_classes)
+        self.val_micro_accuracy =  Accuracy(task="multilabel", average="micro", num_labels=self.num_classes)
+        self.val_cycle_micro_accuracy =  Accuracy(task="multilabel", average="macro", num_labels=self.num_classes)
+        self.train_macro_accuracy =  Accuracy(task="multilabel", average="macro", num_labels=self.num_classes)
+        self.val_macro_accuracy =  Accuracy(task="multilabel", average="macro", num_labels=self.num_classes)
+        self.val_cycle_macro_accuracy =  Accuracy(task="multilabel", average="macro", num_labels=self.num_classes)
+
+        self.train_micro_f1 =  F1Score(task="multilabel", average="micro", num_labels=self.num_classes)
+        self.val_micro_f1 =  F1Score(task="multilabel", average="micro", num_labels=self.num_classes)
+        self.val_cycle_micro_f1 =  F1Score(task="multilabel", average="micro", num_labels=self.num_classes)
+        self.train_macro_f1 =  F1Score(task="multilabel", average="macro", num_labels=self.num_classes)
+        self.val_macro_f1 =  F1Score(task="multilabel", average="macro", num_labels=self.num_classes)
+        self.val_cycle_macro_f1 =  F1Score(task="multilabel", average="micro", num_labels=self.num_classes)
+
+        self.train_micro_precision =  Precision(task="multilabel", average="micro", num_labels=self.num_classes)
+        self.val_micro_precision =  Precision(task="multilabel", average="micro", num_labels=self.num_classes)
+        self.val_cycle_micro_precision =  F1Score(task="multilabel", average="micro", num_labels=self.num_classes)
+        self.train_macro_precision =  Precision(task="multilabel", average="macro", num_labels=self.num_classes)
+        self.val_macro_precision =  Precision(task="multilabel", average="macro", num_labels=self.num_classes)
+        self.val_cycle_macro_precision =  F1Score(task="multilabel", average="micro", num_labels=self.num_classes)
+
+        self.train_micro_recall =  Recall(task="multilabel", average="micro", num_labels=self.num_classes)
+        self.val_micro_recall =  Recall(task="multilabel", average="micro", num_labels=self.num_classes)
+        self.val_cycle_micro_recall =  F1Score(task="multilabel", average="micro", num_labels=self.num_classes)
+        self.train_macro_recall =  Recall(task="multilabel", average="macro", num_labels=self.num_classes)
+        self.val_macro_recall =  Recall(task="multilabel", average="macro", num_labels=self.num_classes)
+        self.val_cycle_macro_recall =  F1Score(task="multilabel", average="micro", num_labels=self.num_classes)
 
     def forward(self, x):
         x = x.float().to(self.device)
@@ -133,7 +129,6 @@ class CycleGAN(pl.LightningModule):
         return torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lr_lambda)
 
     def configure_optimizers(self):
-        def configure_optimizers(self):
         image_gen_opt_config = {
             "lr" : self.opt["image_generator"]["learning_rate"],
             "betas" : (self.opt["image_generator"]["beta1"], self.opt["image_generator"]["beta2"])
@@ -175,7 +170,7 @@ class CycleGAN(pl.LightningModule):
             **report_disc_opt_config,
         )
         report_discriminator_scheduler = self.get_lr_scheduler(report_discriminator_optimizer, self.opt["report_discriminator"]["decay_epochs"])
-        optimizers = [image_generator_optimizer, report_generator_optimizer image_discriminator_optimizer, report_discriminator_optimizer]
+        optimizers = [image_generator_optimizer, report_generator_optimizer, image_discriminator_optimizer, report_discriminator_optimizer]
         schedulers = [image_generator_scheduler, report_generator_scheduler, image_discriminator_scheduler, report_discriminator_scheduler]
 
 
@@ -209,7 +204,7 @@ class CycleGAN(pl.LightningModule):
         cycle_loss_IRI_perceptul = self.img_consistency_criterion(self.real_img, self.cycle_img)
         cycle_loss_IRI_MSE = self.MSE(self.real_img, self.cycle_img)
         cycle_loss_RIR = self.report_consistency_criterion(self.cycle_report, self.real_report)
-        total_cycle_loss = self.lambda_cycle * (cycle_loss_IRI + cycle_loss_RIR) + 1 * cycle_loss_IRI_MSE
+        total_cycle_loss = self.lambda_cycle * (cycle_loss_IRI_perceptul + cycle_loss_RIR) + 1 * cycle_loss_IRI_MSE
 
         ############################################################################################
 
@@ -305,25 +300,25 @@ class CycleGAN(pl.LightningModule):
         cycle_reports = torch.where(cycle_reports > 0.5, 1.0, 0.0)
 
         # calculate metrics
-        self.macro_accuracy['train'].update(cycle_reports, self.real_report)
-        self.micro_accuracy['train'].update(cycle_reports, self.real_report)
-        self.macro_f1['train'].update(cycle_reports, self.real_report)
-        self.micro_f1['train'].update(cycle_reports, self.real_report)
-        self.macro_precision['train'].update(cycle_reports, self.real_report)
-        self.micro_precision['train'].update(cycle_reports, self.real_report)
-        self.macro_recall['train'].update(cycle_reports, self.real_report)
-        self.micro_recall['train'].update(cycle_reports, self.real_report)
+        self.train_macro_accuracy.update(cycle_reports, self.real_report)
+        self.train_micro_accuracy.update(cycle_reports, self.real_report)
+        self.train_macro_f1.update(cycle_reports, self.real_report)
+        self.train_micro_f1.update(cycle_reports, self.real_report)
+        self.train_macro_precision.update(cycle_reports, self.real_report)
+        self.train_micro_precision.update(cycle_reports, self.real_report)
+        self.train_macro_recall.update(cycle_reports, self.real_report)
+        self.train_micro_recall.update(cycle_reports, self.real_report)
         precision_overall = self.calculate_metrics_overall(cycle_reports, self.real_report, batch_nmb)
         
         metrics = {
-            "macro_accuracy": self.macro_accuracy['train'],
-            "micro_accuracy": self.micro_accuracy['train'],
-            "macro_f1": self.macro_f1['train'],
-            "micro_f1": self.micro_f1['train'],
-            "macro_precision": self.macro_precision['train'],
-            "micro_precision": self.micro_precision['train'],
-            "macro_recall": self.macro_recall['train'],
-            "micro_recall": self.micro_recall['train'],
+            "macro_accuracy": self.train_macro_accuracy,
+            "micro_accuracy": self.train_micro_accuracy,
+            "macro_f1": self.train_macro_f1,
+            "micro_f1": self.train_micro_f1,
+            "macro_precision": self.train_macro_precision,
+            "micro_precision": self.train_micro_precision,
+            "macro_recall": self.train_macro_recall,
+            "micro_recall": self.train_micro_recall,
             "precision_overall": precision_overall,
         }
         # add mode key to metrics
@@ -334,7 +329,7 @@ class CycleGAN(pl.LightningModule):
             if optimizer_idx == 0:
                 self.log_images_on_cycle(batch_idx)
                 self.log_reports_on_cycle(batch_idx)
-                self.visualize_images(batch_idx)
+                #self.visualize_images(batch_idx)
 
         if optimizer_idx == 0 or optimizer_idx == 1:
             gen_tmp_loss = self.generator_step(valid_img, valid_report, mode="train")
@@ -376,30 +371,30 @@ class CycleGAN(pl.LightningModule):
         self.fake_report_0_1 = torch.where(self.fake_report > 0.5, 1.0, 0.0)
 
         # calculate metrics
-        self.macro_accuracy['val'].update(self.fake_report_0_1, self.real_report)
-        self.micro_accuracy['val'].update(self.fake_report_0_1, self.real_report)
-        self.macro_f1['val'].update(self.fake_report_0_1, self.real_report)
-        self.micro_f1['val'].update(self.fake_report_0_1, self.real_report)
-        self.macro_precision['val'].update(self.fake_report_0_1, self.real_report)
-        self.micro_precision['val'].update(self.fake_report_0_1, self.real_report)
-        self.macro_recall['val'].update(self.fake_report_0_1, self.real_report)
-        self.micro_recall['val'].update(self.fake_report_0_1, self.real_report)
+        self.val_macro_accuracy.update(self.fake_report_0_1, self.real_report)
+        self.val_micro_accuracy.update(self.fake_report_0_1, self.real_report)
+        self.val_macro_f1.update(self.fake_report_0_1, self.real_report)
+        self.val_micro_f1.update(self.fake_report_0_1, self.real_report)
+        self.val_macro_precision.update(self.fake_report_0_1, self.real_report)
+        self.val_micro_precision.update(self.fake_report_0_1, self.real_report)
+        self.val_macro_recall.update(self.fake_report_0_1, self.real_report)
+        self.val_micro_recall.update(self.fake_report_0_1, self.real_report)
         precision_overall = self.calculate_metrics_overall(self.fake_report_0_1, self.real_report, batch_nmb)
 
         metrics = {
-            "macro_accuracy": self.macro_accuracy['val'],
-            "micro_accuracy": self.micro_accuracy['val'],
-            "macro_f1": self.macro_f1['val'],
-            "micro_f1": self.micro_f1['val'],
-            "macro_precision": self.macro_precision['val'],
-            "micro_precision": self.micro_precision['val'],
-            "macro_recall": self.macro_recall['val'],
-            "micro_recall": self.micro_recall['val'],
+            "macro_accuracy": self.val_macro_accuracy,
+            "micro_accuracy": self.val_micro_accuracy,
+            "macro_f1": self.val_macro_f1,
+            "micro_f1": self.val_micro_f1,
+            "macro_precision": self.val_macro_precision,
+            "micro_precision": self.val_micro_precision,
+            "macro_recall": self.val_macro_recall,
+            "micro_recall": self.val_micro_recall,
             "precision_overall": precision_overall,
         }
 
         # add mode key to metrics
-        metrics = {f"val_{key}": value for key, value in metrics.items()}
+        metrics = {f"val_fake_{key}": value for key, value in metrics.items()}
         self.log_dict(metrics, on_step=True, on_epoch=True, prog_bar=False, logger=True)
 
         # Shuffle data here as paired data is needed for above part
@@ -424,29 +419,30 @@ class CycleGAN(pl.LightningModule):
         cycle_report = torch.where(cycle_report > 0.5, 1.0, 0.0)
         
         # calculate metrics
-        self.macro_accuracy['val'].update(cycle_report, self.real_report)
-        self.micro_accuracy['val'].update(cycle_report, self.real_report)
-        self.macro_f1['val'].update(cycle_report, self.real_report)
-        self.micro_f1['val'].update(cycle_report, self.real_report)
-        self.macro_precision['val'].update(cycle_report, self.real_report)
-        self.micro_precision['val'].update(cycle_report, self.real_report)
-        self.macro_recall['val'].update(cycle_report, self.real_report)
-        self.micro_recall['val'].update(cycle_report, self.real_report)
+        self.val_cycle_macro_accuracy.update(cycle_report, self.real_report)
+        self.val_cycle_micro_accuracy.update(cycle_report, self.real_report)
+        self.val_cycle_macro_f1.update(cycle_report, self.real_report)
+        self.val_cycle_micro_f1.update(cycle_report, self.real_report)
+        self.val_cycle_macro_precision.update(cycle_report, self.real_report)
+        self.val_cycle_micro_precision.update(cycle_report, self.real_report)
+        self.val_cycle_macro_recall.update(cycle_report, self.real_report)
+        self.val_cycle_micro_recall.update(cycle_report, self.real_report)
         precision_overall = self.calculate_metrics_overall(cycle_report, self.real_report, batch_nmb)
 
         metrics = {
-            "macro_accuracy": self.macro_accuracy['val'],
-            "micro_accuracy": self.micro_accuracy['val'],
-            "macro_f1": self.macro_f1['val'],
-            "micro_f1": self.micro_f1['val'],
-            "macro_precision": self.macro_precision['val'],
-            "micro_precision": self.micro_precision['val'],
-            "macro_recall": self.macro_recall['val'],
-            "micro_recall": self.micro_recall['val'],
+            "macro_accuracy": self.val_cycle_macro_accuracy,
+            "micro_accuracy": self.val_cycle_micro_accuracy,
+            "macro_f1": self.val_cycle_macro_f1,
+            "micro_f1": self.val_cycle_micro_f1,
+            "macro_precision": self.val_cycle_macro_precision,
+            "micro_precision": self.val_cycle_micro_precision,
+            "macro_recall": self.val_cycle_macro_recall,
+            "micro_recall": self.val_cycle_micro_recall,
             "precision_overall": precision_overall,
         }
+        
         # add mode key to metrics
-        metrics = {f"val_{key}": value for key, value in metrics.items()}
+        metrics = {f"val_cycle_{key}": value for key, value in metrics.items()}
         self.log_dict(metrics, on_step=True, on_epoch=True, prog_bar=False, logger=True)
 
         val_gen_loss = self.generator_step(valid_img, valid_report, mode="val")
@@ -521,8 +517,8 @@ class CycleGAN(pl.LightningModule):
         self.logger.experiment.add_text(f"On step cycle report logits", report_text_cycle_logits, step)
         self.logger.experiment.add_text(f"On step cycle report tensor", report_text_cycle_tensor, step)
         self.logger.experiment.add_text(f"On step real report tensor", report_text_real_tensor, step)
-
-   def visualize_images(self, batch_idx):
+        
+    def visualize_images(self, batch_idx):
         real_img = self.convert_tensor_to_image(self.real_img[0])
         plt.imshow(real_img)
         plt.axis('off')
@@ -531,7 +527,7 @@ class CycleGAN(pl.LightningModule):
         plt.imshow(cycle_img)
         plt.axis('off')
         plt.show()
-
+        
     def save_images(self, batch_idx):
         # Create the folder if it does not exist
         if not os.path.exists(self.save_folder):
@@ -546,7 +542,7 @@ class CycleGAN(pl.LightningModule):
         cycle_image = self.convert_tensor_to_image(self.cycle_img[0])
         cycle_image_path = os.path.join(self.save_folder, f'cycle_image_{batch_idx}.png')
         cycle_image.save(cycle_image_path)
-
+    
     def convert_tensor_to_image(self, tensor):
         # Denormalize and convert to PIL Image
         mean = [0.485, 0.456, 0.406]

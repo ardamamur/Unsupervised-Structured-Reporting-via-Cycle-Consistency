@@ -23,9 +23,9 @@ def main(params):
     torch.manual_seed(params["trainer"]["seed"])
     processor = DataHandler(opt=params["dataset"])
     chexpert_data_module = ChexpertDataModule(opt=params['dataset'], processor=processor)
-    chexpert_data_module.setup()
-    val_dataloader = chexpert_data_module.val_dataloader()
-    CycleGAN_module = CycleGAN(opt=params, val_dataloader=val_dataloader)
+    #chexpert_data_module.setup()
+    #val_dataloader = chexpert_data_module.val_dataloader()
+    CycleGAN_module = CycleGAN(opt=params)
 
     experiment = env_settings.EXPERIMENTS + 'overfit'
 
@@ -42,6 +42,7 @@ def main(params):
     trainer = pl.Trainer(accelerator="gpu",
                         max_epochs=params['trainer']['n_epoch'],
                         check_val_every_n_epoch=params['trainer']['check_val_every_n_epochs'],
+                        log_every_n_steps=params["trainer"]["buffer_size"],
                         callbacks=[checkpoint_callback],
                         logger=logger)
 

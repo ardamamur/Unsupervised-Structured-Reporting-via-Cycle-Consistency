@@ -25,13 +25,14 @@ class DataHandler:
 
             train_df = train_df.iloc[0:1]
             val_df = val_df.iloc[0:1]
+            #print(val_df)
             test_df = test_df.iloc[0:1]
 
             self.master_df = pd.concat([train_df, val_df, test_df])
             # reset the index
             self.master_df = self.master_df.reset_index(drop=True)
-
-        if not self.opt["use_all_images"]:
+    
+        if not self.opt["use_all_images"] and self.opt['num_images']!=1:
             self.master_df = self.reduce_data(self.master_df, num_samples=self.opt["num_images"])
 
         self.records = self.create_records()
@@ -40,13 +41,14 @@ class DataHandler:
         return df.sample(n=num_samples, random_state=42).reset_index(drop=True)
 
     def create_records(self):
-
+        
         records = []
         if self.paired:
             images_df, label_df = self.create_paired_dataset()
             print("Created paired dataset.")
         else:
             if self.mode != "train":
+                
                 images_df, label_df = self.create_paired_dataset()
                 print("Created paired dataset for inference")
             else:
@@ -56,10 +58,7 @@ class DataHandler:
         labels = self.get_labels(label_df)
         images = self.get_images(images_df)
         splits = self.get_split(images_df)
-        #print(len(labels))
-        #print(len(images))
-        #print(len(splits))
-        
+
         for i in range(len(images)):
 
             image_path = images[i].split("files")[-1]
@@ -97,7 +96,6 @@ class DataHandler:
         # images_df = images_df.sample(frac=1).reset_index(drop=True)
 
         # return images_df, label_df
-
         val_master_df = self.master_df[self.master_df["split"] == "val"]
         train_master_df = self.master_df[self.master_df["split"] == "train"]
 
@@ -117,6 +115,7 @@ class DataHandler:
         # now create new images_df and label_df
         images_df = pd.concat([train_images_df, val_images_df])
         label_df = pd.concat([train_labels_df, val_labels_df])
+
 
         # reset the index
         images_df = images_df.reset_index(drop=True)

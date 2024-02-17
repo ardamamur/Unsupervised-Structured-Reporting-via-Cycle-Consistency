@@ -22,7 +22,6 @@ class ChexpertDataModule(pl.LightningDataModule):
         # Called on every process in DDP
         self.records = self.processor.records
         # create train val and test records based on the split key value of each record
-
         if stage in {"fit", None}:
             train_records = []
             val_records = []
