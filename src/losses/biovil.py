@@ -3,6 +3,8 @@ from torch import nn
 import torchvision.transforms as transforms
 from health_multimodal.image.model.pretrained import get_biovil_t_image_encoder, get_biovil_image_encoder
 
+
+
 class ModifiedMultiImageEncoder(nn.Module):
     def __init__(self, original_model):
         super(ModifiedMultiImageEncoder, self).__init__()
@@ -15,37 +17,28 @@ class ModifiedMultiImageEncoder(nn.Module):
         x = self.original_model.encoder.relu(x)
         x = self.original_model.encoder.maxpool(x)
 
-        resnet_features = []
+        features = []
         for layer_name in ['layer1', 'layer2', 'layer3', 'layer4']:
             layer = getattr(self.original_model.encoder, layer_name)
             x = layer(x)
-            resnet_features.append(x)
+            features.append(x)
 
-        print(x.shape)
-        x = self.original_model.encoder.avgpool(x)
-        print(x.shape)
-        # x = self.original_model.encoder.fc(x)
-        # Prepare for ViT input
-        x = self.original_model.backbone_to_vit(x)  # Convert to correct dimension for ViT
-        print(self.original_model.vit_pooler.blocks)
-        vit_features = []
-        for block in self.original_model.vit_pooler.blocks:
-            x = x.squeeze(-1).squeeze(-1)  # added
-            x = x.unsqueeze(1)  # added
-            x = block(x, None)  # Pass None or appropriate value if your block expects more arguments
-            vit_features.append(x)
-
-        # Combine ResNet and ViT features
-        features = resnet_features + vit_features
+        # Extract features from ViT layers
+        # x = self.original_model.backbone_to_vit(x)
+        # for block in self.original_model.vit_pooler.blocks:
+            # x = block(x)
+            # features.append(x)
 
         return features
 
-class Perceptual_xray(nn.Module):
+
+class perceptual_biovil(nn.Module):
     def __init__(self):
-        super(Perceptual_xray, self).__init__()
+        super(perceptual_biovil, self).__init__()
         original_model = get_biovil_t_image_encoder().encoder
-        print(original_model)
+        # print(original_model)
         self.feature_extractor = ModifiedMultiImageEncoder(original_model)
+        # self.normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 
         for param in self.feature_extractor.parameters():
             param.requires_grad = False
@@ -56,7 +49,10 @@ class Perceptual_xray(nn.Module):
 
         loss = 0.0
         for true_feat, pred_feat in zip(true_features, pred_features):
-            print(nn.functional.mse_loss(true_feat, pred_feat))
             loss += nn.functional.mse_loss(true_feat, pred_feat)
 
         return loss
+
+
+
+

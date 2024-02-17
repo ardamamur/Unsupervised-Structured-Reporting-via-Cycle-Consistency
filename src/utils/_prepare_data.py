@@ -56,9 +56,9 @@ class DataHandler:
         labels = self.get_labels(label_df)
         images = self.get_images(images_df)
         splits = self.get_split(images_df)
-        print(len(labels))
-        print(len(images))
-        print(len(splits))
+        #print(len(labels))
+        #print(len(images))
+        #print(len(splits))
         
         for i in range(len(images)):
 
@@ -86,16 +86,42 @@ class DataHandler:
 
     def create_unpaired_dataset(self):
 
-        unpaired_samples = {}
+        # unpaired_samples = {}
 
-        label_df = self.master_df[self.opt["chexpert_labels"]]
-        images_df = self.master_df[["jpg", "split"]]
+        # label_df = self.master_df[self.opt["chexpert_labels"]]
+        # images_df = self.master_df[["jpg", "split"]]
 
-        # TODO :now create unpaired records:
-        # Shuffle one of the df to break the pairing
+        # # TODO :now create unpaired records:
+        # # Shuffle one of the df to break the pairing
 
-        images_df = images_df.sample(frac=1).reset_index(drop=True)
+        # images_df = images_df.sample(frac=1).reset_index(drop=True)
 
+        # return images_df, label_df
+
+        val_master_df = self.master_df[self.master_df["split"] == "val"]
+        train_master_df = self.master_df[self.master_df["split"] == "train"]
+
+        # shuffle the train and val dataframes
+        print('length of train images:', len(train_master_df))
+        print('length of val images:', len(val_master_df))
+
+        print('shuffling train images to')
+        train_images_df = train_master_df[['jpg', 'split']]
+        train_labels_df = train_master_df[self.opt["chexpert_labels"]]
+
+        train_images_df = train_images_df.sample(frac=1).reset_index(drop=True)
+
+        val_images_df = val_master_df[['jpg', 'split']]
+        val_labels_df = val_master_df[self.opt["chexpert_labels"]]
+
+        # now create new images_df and label_df
+        images_df = pd.concat([train_images_df, val_images_df])
+        label_df = pd.concat([train_labels_df, val_labels_df])
+
+        # reset the index
+        images_df = images_df.reset_index(drop=True)
+        label_df = label_df.reset_index(drop=True)
+        
         return images_df, label_df
 
     def create_paired_dataset(self):

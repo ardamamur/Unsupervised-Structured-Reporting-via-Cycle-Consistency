@@ -4,9 +4,9 @@ import torchvision.models as models
 import torchvision.transforms as transforms
 
 
-class PerceptualLoss(nn.Module):
+class perceptual_vgg(nn.Module):
     def __init__(self):
-        super(PerceptualLoss, self).__init__()
+        super(perceptual_vgg, self).__init__()
 
         # Load pretrained models
         vgg19 = models.vgg19(pretrained=True)

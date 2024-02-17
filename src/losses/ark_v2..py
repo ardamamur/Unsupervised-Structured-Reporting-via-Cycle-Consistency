@@ -36,9 +36,9 @@ class ModifiedSwinTransformer(nn.Module):
                                 features.append(x)
         return features
 
-class PerceptualLossXray(nn.Module):
+class perceptual_ark_v2(nn.Module):
     def __init__(self):
-        super(PerceptualLossXray, self).__init__()
+        super(perceptual_ark_v2, self).__init__()
         arkmodel = ArkPerceptualLoss()
         print(arkmodel)
         self.modified_model = ModifiedSwinTransformer(arkmodel)

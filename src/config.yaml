@@ -29,8 +29,7 @@ dataset:
 image_generator:
   learning_rate: 0.001
   optimizer: 'Adam' # AdamW
-  scheduler: 'ReduceLROnPlateau' # cosine, exponential, polynomial
-  report_encoder_model : "ddpm"
+  report_encoder_model : "cgan"
   generator_layer_size : [256, 512, 1024]
   z_size : 100
   weight_decay: 0.0001
@@ -48,7 +47,6 @@ image_generator:
 image_discriminator:
   learning_rate: 0.001
   optimizer: 'Adam' # AdamW
-  scheduler: 'ReduceLROnPlateau' # cosine, exponential, polynomial
   weight_decay: 0.0001
   decay_epochs : 5
   beta1: 0.5
@@ -62,7 +60,6 @@ image_discriminator:
 report_generator:
   learning_rate: 0.001
   optimizer: 'Adam' # AdamW
-  scheduler: 'ReduceLROnPlateau' # cosine, exponential, polynomial
   weight_decay: 0.0001
   decay_epochs : 5
   beta1: 0.9
@@ -78,23 +75,21 @@ report_generator:
 report_discriminator:
   learning_rate: 0.001
   optimizer: 'Adam' # AdamW
-  scheduler: 'ReduceLROnPlateau' # cosine, exponential, polynomial
   weight_decay: 0.0001
   decay_epochs : 5
   beta1: 0.9
   beta2: 0.999
+  model : 'discriminator' # discriminator
 
 
 trainer :
   num_classes : 13
-  lambda_cycle_loss: 10
+  lambda_cycle: 10
   seed : 42
   buffer_size : 300
   check_val_every_n_epochs: 1
   n_epoch: 10000
   threshold : 0.5
-  accumulated_batches : 5 # number of batches to accumulate before optimizing (decide number of batches to calculate loss)
-  metrics : "KLDivergence"
   log_images_steps: 100
   gen_training_threshold: 0.25
   disc_training_threshold: 0.20

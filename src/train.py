@@ -4,9 +4,7 @@ import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger
 from modules.ChexpertModule import ChexpertDataModule
-from modules.CycleGANModule import CycleGAN
-# from modules.CycleGANModuleDiffusion import CycleGAN
-# from modules.CycleGANModuleStack import CycleGAN
+from modules.CycleGANModule_v2 import CycleGAN
 from tensorboard import program
 from utils._prepare_data import DataHandler
 from utils.environment_settings import env_settings
@@ -29,8 +27,7 @@ def main(params):
     val_dataloader = chexpert_data_module.val_dataloader()
     CycleGAN_module = CycleGAN(opt=params, val_dataloader=val_dataloader)
 
-    experiment = (env_settings.EXPERIMENTS + params['image_generator']['report_encoder_model']
-                  + "_" + params["report_generator"]["image_encoder_model"])
+    experiment = env_settings.EXPERIMENTS + 'overfit'
 
     logger = TensorBoardLogger(experiment, default_hp_metric=False)
 
@@ -45,7 +42,6 @@ def main(params):
     trainer = pl.Trainer(accelerator="gpu",
                         max_epochs=params['trainer']['n_epoch'],
                         check_val_every_n_epoch=params['trainer']['check_val_every_n_epochs'],
-                        log_every_n_steps=params["trainer"]["buffer_size"],
                         callbacks=[checkpoint_callback],
                         logger=logger)
 
