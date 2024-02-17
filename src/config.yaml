@@ -14,20 +14,20 @@ dataset:
     'Pneumonia',
     'Pneumothorax'
   ]
-  batch_size : 32
-  input_size : 64 #256 #224 #256 #224
+  batch_size : 16
+  input_size : 224 #224 #256 #224
   data_imputation : "zeros"
   val_size : 0.1
   test_size : 0.1
-  num_workers : 4
+  num_workers : 16
   paired: True
   channels: 3
   use_all_images: False
-  num_images: 10000
+  num_images: 20
 
 
 image_generator:
-  learning_rate: 0.0001
+  learning_rate: 0.001
   optimizer: 'Adam' # AdamW
   scheduler: 'ReduceLROnPlateau' # cosine, exponential, polynomial
   report_encoder_model : "ddpm"
@@ -51,7 +51,7 @@ image_discriminator:
   scheduler: 'ReduceLROnPlateau' # cosine, exponential, polynomial
   weight_decay: 0.0001
   decay_epochs : 5
-  beta1: 0.9
+  beta1: 0.5
   beta2: 0.999
   monitor: 'val_loss'
   channels: 3
@@ -68,11 +68,11 @@ report_generator:
   beta1: 0.9
   beta2: 0.999
   monitor: 'val_loss'
-  image_encoder_model: "BioVil"
-  classification_head_hidden1: 512
-  classification_head_hidden2: 256
+  image_encoder_model: 'BioVil' #'ARK' #"BioVil"
+  classification_head_hidden1: 2048
+  classification_head_hidden2: 512
   dropout_prob: 0.5
-  embedding_size : 128
+  embedding_size : 512 #128 for global embedding
 
 
 report_discriminator:

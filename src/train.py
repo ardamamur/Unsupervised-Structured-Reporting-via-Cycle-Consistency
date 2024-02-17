@@ -6,6 +6,7 @@ from pytorch_lightning.loggers import TensorBoardLogger
 from modules.ChexpertModule import ChexpertDataModule
 from modules.CycleGANModule import CycleGAN
 # from modules.CycleGANModuleDiffusion import CycleGAN
+# from modules.CycleGANModuleStack import CycleGAN
 from tensorboard import program
 from utils._prepare_data import DataHandler
 from utils.environment_settings import env_settings

@@ -313,7 +313,7 @@ class CycleGAN(pl.LightningModule):
 
         self.log_dict(test_metrics, on_step=True, on_epoch=True, prog_bar=True)
 
-        if batch_idx % 1000 == 0:
+        if batch_idx % 100 == 0 and (self.current_epoch % 10 == 0):
             if optimizer_idx == 0:
                 self.log_images_on_cycle(batch_idx)
                 self.log_reports_on_cycle(batch_idx)
@@ -586,12 +586,12 @@ class CycleGAN(pl.LightningModule):
                             ark_pretrained_path=env_settings.PRETRAINED_PATH_ARK)
         
         elif model_name == "BioVil":
-            #return BioViL(embedding_size=self.opt["report_generator"]["embedding_size"],
-             #             num_classes=self.num_classes,
-              #            hidden_1=self.opt["report_generator"]["classification_head_hidden1"],
-               #           hidden_2=self.opt["report_generator"]["classification_head_hidden2"],
-                #          dropout_rate=self.opt["report_generator"]["dropout_prob"])
-            return BioViL_V2()
+            return BioViL(embedding_size=self.opt["report_generator"]["embedding_size"],
+                          num_classes=self.num_classes,
+                          hidden_1=self.opt["report_generator"]["classification_head_hidden1"],
+                          hidden_2=self.opt["report_generator"]["classification_head_hidden2"],
+                          dropout_rate=self.opt["report_generator"]["dropout_prob"])
+            #return BioViL_V2()
         else:
             raise NotImplementedError(f"Model {model_name} not implemented for report generation.")
 
