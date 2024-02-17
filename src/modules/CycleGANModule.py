@@ -100,10 +100,14 @@ class CycleGAN(pl.LightningModule):
         self.val_recall_macro = Recall(task="multilabel", average="micro", num_labels=self.num_classes)
         self.val_f1_micro = F1Score(task="multilabel", average="micro", num_labels=self.num_classes)
         self.val_f1_macro = F1Score(task="multilabel", average="macro", num_labels=self.num_classes)
-        self.test_accuracy_cycle_micro = Accuracy(task="multilabel", average="micro", num_labels=self.num_classes)
-        self.test_recall_cycle_micro = Recall(task="multilabel", average="micro", num_labels=self.num_classes)
-        self.test_f1_cycle_micro = F1Score(task="multilabel", average="micro", num_labels=self.num_classes)
-        self.test_precision_cycle_micro = Precision(task="multilabel", average="micro", num_labels=self.num_classes)
+        self.train_accuracy_cycle_micro = Accuracy(task="multilabel", average="micro", num_labels=self.num_classes)
+        self.train_recall_cycle_micro = Recall(task="multilabel", average="micro", num_labels=self.num_classes)
+        self.train_f1_cycle_micro = F1Score(task="multilabel", average="micro", num_labels=self.num_classes)
+        self.train_precision_cycle_micro = Precision(task="multilabel", average="micro", num_labels=self.num_classes)
+        self.train_precision_cycle_macro = Precision(task="multilabel", average="macro", num_labels=self.num_classes)
+        self.train_recall_macro = Recall(task="multilabel", average="macro", num_labels=self.num_classes)
+        self.train_f1_macro = F1Score(task="multilabel", average="macro", num_labels=self.num_classes)
+        self.train_accuracy_cycle_macro = Accuracy(task="multilabel", average="macro", num_labels=self.num_classes)
         self.val_accuracy_cycle_micro = Accuracy(task="multilabel", average="micro", num_labels=self.num_classes)
         self.val_precision_cycle_micro = Precision(task="multilabel", average="micro", num_labels=self.num_classes)
         self.val_recall_cycle_micro = Recall(task="multilabel", average="micro", num_labels=self.num_classes)
@@ -297,18 +301,26 @@ class CycleGAN(pl.LightningModule):
 
         cycle_reports = torch.sigmoid(self.cycle_report)
         cycle_reports = torch.where(cycle_reports > 0.5, 1.0, 0.0)
-        self.test_accuracy_cycle_micro.update(cycle_reports, self.real_report)
-        self.test_recall_cycle_micro.update(cycle_reports, self.real_report)
-        self.test_f1_cycle_micro.update(cycle_reports, self.real_report)
-        self.test_precision_cycle_micro.update(cycle_reports, self.real_report)
-        test_precision_overall = self.calculate_metrics_overall(cycle_reports, self.real_report, batch_nmb)
+        self.train_accuracy_cycle_micro.update(cycle_reports, self.real_report)
+        self.train_accuracy_cycle_macro.update(cycle_reports, self.real_report)
+        self.train_recall_cycle_micro.update(cycle_reports, self.real_report)
+        self.train_recall_cycle_macro.update(cycle_reports, self.real_report)
+        self.train_f1_cycle_micro.update(cycle_reports, self.real_report)
+        self.train_f1_cycle_macro.update(cycle_reports, self.real_report)
+        self.train_precision_cycle_micro.update(cycle_reports, self.real_report)
+        self.train_precision_cycle_macro.update(cycle_reports, self.real_report)
+        train_precision_overall = self.calculate_metrics_overall(cycle_reports, self.real_report, batch_nmb)
 
         test_metrics = {
-            "test_accuracy_cycle_micro": self.test_accuracy_cycle_micro,
-            "test_recall_cycle_micro": self.test_recall_cycle_micro,
-            "test_f1_cycle_micro": self.test_f1_cycle_micro,
-            "test_precision_cycle_micro": self.test_precision_cycle_micro,
-            "test_precision_overall_cycle": test_precision_overall,
+            "train_accuracy_cycle_micro": self.train_accuracy_cycle_micro,
+            "train_accuracy_cycle_macro": self.train_accuracy_cycle_macro,
+            "train_recall_cycle_micro": self.train_recall_cycle_micro,
+            "train_recall_cycle_macro": self.train_recall_macro,
+            "train_f1_cycle_micro": self.train_f1_cycle_micro,
+            "train_f1_cycle_macro": self.train_f1_macro,
+            "train_precision_cycle_micro": self.train_precision_cycle_micro,
+            "train_precision_cycle_macro": self.train_precision_cycle_macro,
+            "train_precision_overall_cycle": train_precision_overall,
         }
 
         self.log_dict(test_metrics, on_step=True, on_epoch=True, prog_bar=True)
