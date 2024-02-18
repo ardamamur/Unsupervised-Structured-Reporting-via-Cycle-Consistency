@@ -146,7 +146,7 @@ class cGANconv_v1(nn.Module):
         return out.view(-1, self.img_channels, self.img_size, self.img_size)
 
 
-class cGANconv_V2(nn.Module):
+class cGANconv_v2(nn.Module):
     def __init__(self, z_size, img_size, class_num, img_channels, projection_dim=128):
         super(cGANconv_V2, self).__init__()
         self.img_size = img_size
