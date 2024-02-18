@@ -575,6 +575,7 @@ class CycleGAN(pl.LightningModule):
         real_image_path = os.path.join(self.save_folder, f'real_image_{batch_idx}.png')
         real_image.save(real_image_path)
 
+
         # Process and save the cycle image
         cycle_image = self.convert_tensor_to_image(self.cycle_img[0])
         cycle_image_path = os.path.join(self.save_folder, f'cycle_image_{batch_idx}.png')
