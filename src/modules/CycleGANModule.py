@@ -289,9 +289,25 @@ class CycleGAN(pl.LightningModule):
         valid_report_sample = Tensor(np.ones((self.real_report.size(0), *self.report_discriminator.output_shape)))
         fake_report_sample = Tensor(np.zeros((self.real_report.size(0), *self.report_discriminator.output_shape)))
 
+
+
+        binary_tensor = torch.randint(0, 2, (self.real_report.size(0), self.num_classes)).to(self.device)
+        binary_noisy_tensor = binary_tensor.clone()
+        # add noise to the binary tensor
+        binary_noisy_tensor = binary_noisy_tensor + torch.rand_like(binary_noisy_tensor) * 0.3
+
         # get generated image and reports from the generators
         self.fake_report = self.report_generator(self.real_img)
         self.fake_report = torch.sigmoid(self.fake_report)
+
+
+        binary_tensor_output = self.report_discriminator(binary_tensor)
+        binary_tensor_score = torch.mean(binary_tensor_output).item()
+        self.log('binary_tensor_score', binary_tensor_score, on_step=True)
+
+        binary_noisy_tensor_output = self.report_discriminator(binary_noisy_tensor)
+        binary_noisy_tensor_score = torch.mean(binary_noisy_tensor_output).item()
+        self.log('binary_noisy_tensor_score', binary_noisy_tensor_score, on_step=True)
 
         
         self.fake_img = self.image_generator(z, self.real_report)
