@@ -17,7 +17,7 @@ from models.ARK import ARKModel
 from utils.buffer import ReportBuffer, ImageBuffer
 from utils.utils import convert_to_soft_labels
 from models.Discriminator import *
-from models.cGAN import cGAN, cGANconv
+from models.cGAN import cGAN, cGANconv, cGANconv_v1, cGANconv_v2, cGANconv_v3, cGANconv_v4, cGANconv_v5, cGANconv_v6, cGANconv_v7, cGANconv_v8
 # from models.DDPM import ContextUnet, DDPM
 from utils.environment_settings import env_settings
 from losses.Losses import *
@@ -75,6 +75,7 @@ class CycleGAN(pl.LightningModule):
         self.n_T = self.opt["image_generator"]["n_T"]
         self.soft_label_type = self.opt['trainer']['soft_label_type']
         self.use_report_disc = self.opt['trainer']['use_report_disc']
+        self.img_channels = self.opt["image_discriminator"]["channels"]
 
     def define_networks(self):
         self.report_generator = self._get_report_generator()
@@ -611,11 +612,9 @@ class CycleGAN(pl.LightningModule):
         real_img_tensor = real_img_1
         fake_img_tensor = fake_img_1
 
-        step = self.current_epoch * batch_idx + batch_idx
-
-        self.logger.experiment.add_image(f"On step {self.phase} cycle img", cycle_img_tensor, step, dataformats='CHW')
-        self.logger.experiment.add_image(f"On step {self.phase} real img", real_img_tensor, step, dataformats='CHW')
-        self.logger.experiment.add_image(f"On step {self.phase} fake_img", fake_img_tensor, step, dataformats='CHW')
+        self.logger.experiment.add_image(f"On step {self.phase} cycle img", cycle_img_tensor, dataformats='CHW')
+        self.logger.experiment.add_image(f"On step {self.phase} real img", real_img_tensor, dataformats='CHW')
+        self.logger.experiment.add_image(f"On step {self.phase} fake_img", fake_img_tensor, dataformats='CHW')
 
     def log_reports_on_cycle(self, batch_idx):
         real_report = self.real_report[0]
@@ -631,7 +630,7 @@ class CycleGAN(pl.LightningModule):
         report_text_real = ', '.join(report_text_labels)
         # Convert tensor elements to strings for joining
         report_text_real_raw = ', '.join([str(item.item()) for item in real_report_raw])
-        report_text_real_raw_hard  = ', '.join([str(item.item()) for item in real_hard_report])
+        report_text_real_raw_hard = ', '.join([str(item.item()) for item in real_hard_report])
 
         
         generated_report = cycle_report.cpu().detach()
@@ -703,7 +702,31 @@ class CycleGAN(pl.LightningModule):
     def _get_image_generator(self):
         model_dict = {
             'cgan' : cGANconv(z_size=self.z_size, img_size=self.input_size, class_num=self.num_classes,
-                    img_channels=self.opt["image_discriminator"]["channels"])
+                    img_channels=self.img_channels),
+
+            'cgan_v1': cGANconv_v1(z_size=self.z_size, img_size=self.input_size, class_num=self.num_classes,
+                                   img_channels=self.img_channels),
+
+            'cgan_v2': cGANconv_v2(z_size=self.z_size, img_size=self.input_size, class_num=self.num_classes,
+                                   img_channels=self.img_channels),
+
+            'cgan_v3': cGANconv_v3(z_size=self.z_size, img_size=self.input_size, class_num=self.num_classes,
+                                  img_channels=self.img_channels),
+
+            'cgan_v4': cGANconv_v4(z_size=self.z_size, img_size=self.input_size, class_num=self.num_classes,
+                                  img_channels=self.img_channels),
+
+            'cgan_v5': cGANconv_v5(z_size=self.z_size, img_size=self.input_size, class_num=self.num_classes,
+                                  img_channels=self.img_channels),
+
+            'cgan_v6': cGANconv_v6(z_size=self.z_size, img_size=self.input_size, class_num=self.num_classes,
+                                  img_channels=self.img_channels),
+
+            'cgan_v7': cGANconv_v7(z_size=self.z_size, img_size=self.input_size, class_num=self.num_classes,
+                                   img_channels=self.img_channels),
+
+            'cgan_v8': cGANconv_v8(z_size=self.z_size, img_size=self.input_size, class_num=self.num_classes,
+                                   img_channels=self.img_channels)
         }
 
         return model_dict[self.opt["image_generator"]["model"]]
