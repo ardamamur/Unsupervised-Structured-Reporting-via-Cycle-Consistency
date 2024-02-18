@@ -92,7 +92,6 @@ class cGANconv(nn.Module):
             nn.Tanh()  # Use Tanh for normalizing the output to [-1, 1]
         )
 
-
     def forward(self, z, labels):
         # Reshape z
         z = z.view(-1, self.z_size)
@@ -104,9 +103,46 @@ class cGANconv(nn.Module):
         return out.view(-1, self.img_channels, self.img_size, self.img_size)
 
 
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
+class cGANconv_v1(nn.Module):
+    def __init__(self, z_size, img_size, class_num, img_channels):
+        super(cGANconv_v1, self).__init__()
+        self.z_size = z_size
+        self.features = 64
+        self.img_size = img_size
+        self.label_dim = 1
+        self.img_channels = img_channels
+
+        self.model = nn.Sequential(
+            # Linear Layer as input
+            nn.Linear(self.z_size + class_num, 128 * (self.img_size // 4) * self.img_size // 4),
+            # Reshape to starting image dimensions (e.g., 128 x (img_size/4) x (img_size/4))
+            ViewLayer(128, self.img_size // 4, self.img_size // 4),
+
+            # Up-sampling layers
+            nn.Upsample(scale_factor=2, mode='bilinear'),
+            nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(128),
+            nn.ReLU(inplace=True),
+
+            nn.Upsample(scale_factor=2, mode='bilinear'),
+            nn.Conv2d(128, 64, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(inplace=True),
+
+            # Output layer - adjust to match the number of output channels
+            nn.Conv2d(64, self.img_channels, kernel_size=3, stride=1, padding=1),
+            nn.Tanh()  # Use Tanh for normalizing the output to [-1, 1]
+        )
+
+    def forward(self, z, labels):
+        # Reshape z
+        z = z.view(-1, self.z_size)
+
+        c = labels
+        x = torch.cat([z, c], 1)
+        out = self.model(x)
+
+        return out.view(-1, self.img_channels, self.img_size, self.img_size)
 
 
 class cGANconv_V2(nn.Module):
@@ -131,12 +167,12 @@ class cGANconv_V2(nn.Module):
         )
 
         self.upsample_layers = nn.Sequential(
-            nn.Upsample(scale_factor=2),
+            nn.Upsample(scale_factor=2, mode='bilinear'),
             nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1),
             nn.BatchNorm2d(128),
             nn.ReLU(inplace=True),
 
-            nn.Upsample(scale_factor=2),
+            nn.Upsample(scale_factor=2, mode='bilinear'),
             nn.Conv2d(124, 64, kernel_size=3, stride=1, padding=1),
             nn.BatchNorm2d(64),
         )
@@ -191,7 +227,7 @@ class cGANconv_v3(nn.Module):
             ViewLayer_v1((-1, 128, self.img_size // 4, self.img_size // 4)),
 
             # Up-sampling layers with conditional inputs
-            nn.Upsample(scale_factor=2),
+            nn.Upsample(scale_factor=2, mode='bilinear'),
             nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1),
             nn.BatchNorm2d(128),
             nn.ReLU(inplace=True),
@@ -203,7 +239,7 @@ class cGANconv_v3(nn.Module):
             nn.ReLU(inplace=True),
 
             # Final up-sampling and output layer
-            nn.Upsample(scale_factor=2),
+            nn.Upsample(scale_factor=2, mode='bilinear'),
             nn.Conv2d(64, self.img_channels, kernel_size=3, stride=1, padding=1),
             nn.Tanh()  # Use Tanh for normalizing the output to [-1, 1]
         )
@@ -247,6 +283,7 @@ class ResNetBlock(nn.Module):
         out = self.relu(out)
         return out
 
+
 class SelfAttention(nn.Module):
     """ Self-attention layer for cGANconv model """
     def __init__(self, in_dim):
@@ -267,6 +304,7 @@ class SelfAttention(nn.Module):
         out = out.view(batch_size, C, width, height)
 
         return out + x  # Skip connection
+
 
 class cGANconv_v4(nn.Module):
     def __init__(self, z_size, img_size, class_num, img_channels):
@@ -289,7 +327,7 @@ class cGANconv_v4(nn.Module):
             ViewLayer_v1((-1, 128, self.img_size // 4, self.img_size // 4)),
 
             # Up-sampling layers with conditional inputs
-            nn.Upsample(scale_factor=2),
+            nn.Upsample(scale_factor=2, mode='bilinear'),
             nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1),
             SelfAttention(128),  # Attention layer after first convolution
             nn.BatchNorm2d(128),
@@ -301,7 +339,7 @@ class cGANconv_v4(nn.Module):
             nn.ReLU(inplace=True),
 
             # Final up-sampling and output layer
-            nn.Upsample(scale_factor=2),
+            nn.Upsample(scale_factor=2, mode='bilinear'),
             nn.Conv2d(64, self.img_channels, kernel_size=3, stride=1, padding=1),
             nn.Tanh()  # Use Tanh for normalizing the output to [-1, 1]
         )
@@ -318,6 +356,7 @@ class cGANconv_v4(nn.Module):
         out = self.model(x)
 
         return out.view(-1, self.img_channels, self.img_size, self.img_size)
+
 
 class cGANconv_v5(nn.Module):
     def __init__(self, z_size, img_size, class_num, img_channels):
@@ -340,7 +379,7 @@ class cGANconv_v5(nn.Module):
             ViewLayer_v1((-1, 128, self.img_size // 4, self.img_size // 4)),
 
             # Up-sampling layers with conditional inputs
-            nn.Upsample(scale_factor=2),
+            nn.Upsample(scale_factor=2, mode='bilinear'),
             nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1),
             SelfAttention(128),  # Attention layer after first convolution
             nn.BatchNorm2d(128),
@@ -353,7 +392,7 @@ class cGANconv_v5(nn.Module):
             nn.ReLU(inplace=True),
 
             # Final up-sampling and output layer
-            nn.Upsample(scale_factor=2),
+            nn.Upsample(scale_factor=2, mode='bilinear'),
             nn.Conv2d(64, self.img_channels, kernel_size=3, stride=1, padding=1),
             nn.Tanh()  # Use Tanh for normalizing the output to [-1, 1]
         )
@@ -401,7 +440,7 @@ class cGANconv_v6(nn.Module):
             ViewLayer_v1((-1, 128, self.img_size // 4, self.img_size // 4)),
 
             # Up-sampling layers with conditional inputs
-            nn.Upsample(scale_factor=2),
+            nn.Upsample(scale_factor=2, mode='bilinear'),
             nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1),
             SelfAttention(128),  # Attention layer after first convolution
             ResNetBlock(128),
@@ -415,7 +454,7 @@ class cGANconv_v6(nn.Module):
             nn.ReLU(inplace=True),
 
             # Final up-sampling and output layer
-            nn.Upsample(scale_factor=2),
+            nn.Upsample(scale_factor=2, mode='bilinear'),
             nn.Conv2d(64, self.img_channels, kernel_size=3, stride=1, padding=1),
             nn.Tanh()  # Use Tanh for normalizing the output to [-1, 1]
         )
@@ -455,7 +494,7 @@ class cGANconv_v7(nn.Module):
             ViewLayer_v1((-1, 128, self.img_size // 4, self.img_size // 4)),
 
             # Up-sampling layers with conditional inputs
-            nn.Upsample(scale_factor=2),
+            nn.Upsample(scale_factor=2, mode='bilinear'),
             nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1),
             SelfAttention(128),  # Attention layer after first convolution
             ResNetBlock(128),
@@ -470,7 +509,7 @@ class cGANconv_v7(nn.Module):
             nn.ReLU(inplace=True),
 
             # Final up-sampling and output layer
-            nn.Upsample(scale_factor=2),
+            nn.Upsample(scale_factor=2, mode='bilinear'),
             nn.Conv2d(64, self.img_channels, kernel_size=3, stride=1, padding=1),
             nn.Tanh()  # Use Tanh for normalizing the output to [-1, 1]
         )
@@ -495,6 +534,105 @@ class cGANconv_v7(nn.Module):
         out = self.model[8:](out)
 
         return out.view(-1, self.img_channels, self.img_size, self.img_size)
+
+
+class CrossAttention(nn.Module):
+    def __init__(self, feature_dim, label_dim, img_size):
+        super(CrossAttention, self).__init__()
+        self.img_size = img_size
+        self.feature_conv = nn.Conv2d(feature_dim, feature_dim // 8, 1)
+        self.label_conv = nn.Conv2d(label_dim, feature_dim // 8, 1)
+        self.value_conv = nn.Conv2d(feature_dim, feature_dim, 1)
+        self.softmax = nn.Softmax(dim=-1)
+
+    def forward(self, feature_maps, labels):
+        batch, channels, height, width = feature_maps.size()
+        label_query = self.label_conv(labels).view(batch, -1, height * width)
+        feature_key = self.feature_conv(feature_maps).view(batch, -1, height * width).permute(0, 2, 1)
+        value = self.value_conv(feature_maps).view(batch, -1, height * width)
+
+        attention = self.softmax(torch.bmm(label_query, feature_key))
+        out = torch.bmm(value, attention.permute(0, 2, 1))
+        out = out.view(batch, channels, height, width)
+
+        return out + feature_maps  # Skip connection
+
+class cGANconv_v8(nn.Module):
+    def __init__(self, z_size, img_size, class_num, img_channels):
+        super(cGANconv_v8, self).__init__()
+        self.z_size = z_size
+        self.img_size = img_size
+        self.class_num = class_num
+        self.img_channels = img_channels
+        self.label_embedding_dim = 50  # Dimension for the embedded labels
+
+        # Label embedding layer
+        self.label_embedding = nn.Sequential(
+        nn.Linear(class_num, self.label_embedding_dim),
+        nn.LeakyReLU(0.2)
+        )
+
+        # Define Cross-Attention layer
+        self.cross_attention1 = CrossAttention(128, self.label_embedding_dim, self.img_size // 2)
+        self.cross_attention2 = CrossAttention(64, self.label_embedding_dim, self.img_size)
+
+        # Model layers
+        self.model = nn.Sequential(
+            # Linear Layer as input, incorporating embedded label dimension
+            nn.Linear(self.z_size + self.label_embedding_dim, 128 * (self.img_size // 4) * (self.img_size // 4)),
+            ViewLayer_v1((-1, 128, self.img_size // 4, self.img_size // 4)),
+
+            # Up-sampling layers with conditional inputs
+            nn.Upsample(scale_factor=2, mode='bilinear'),
+            nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1),
+            SelfAttention(128),  # Attention layer after first convolution
+            # Inject Cross-Attention here
+            ResNetBlock(128),
+            nn.BatchNorm2d(128),
+            nn.ReLU(inplace=True),
+
+            ViewLayer_v1((-1, 128 + self.label_embedding_dim, self.img_size // 2, self.img_size // 2)),
+            nn.Conv2d(128, 64, kernel_size=3, stride=1, padding=1),
+            SelfAttention(64),  # Second attention layer
+            # Inject Cross Attention here
+            ResNetBlock(64),
+            nn.BatchNorm2d(64),
+            nn.ReLU(inplace=True),
+
+            # Final up-sampling and output layer
+            nn.Upsample(scale_factor=2, mode='bilinear'),
+            nn.Conv2d(64, self.img_channels, kernel_size=3, stride=1, padding=1),
+            nn.Tanh()  # Use Tanh for normalizing the output to [-1, 1]
+        )
+        print(self.model)
+
+    def forward(self, z, labels):
+        # Embedding the labels
+        embedded_labels = self.label_embedding(labels)
+
+        # Initial concatenation of noise vector and embedded labels
+        z = z.view(-1, self.z_size)
+        x = torch.cat([z, embedded_labels], 1)
+        out = self.model[0:5](x)  # Adjust indices as needed
+
+        # Apply first cross-attention
+        embedded_labels_expanded = embedded_labels.unsqueeze(2).unsqueeze(3)
+        embedded_labels_expanded = embedded_labels_expanded.expand(-1, -1, self.img_size // 2,
+                                                                           self.img_size // 2)
+        out = self.cross_attention1(out, embedded_labels_expanded)
+
+        # Continue through the model
+        out = self.model[5:11](out)
+
+        # Apply second cross-attention
+        embedded_labels_expanded = embedded_labels_expanded.expand(-1, -1, self.img_size, self.img_size)
+        out = self.cross_attention2(out, embedded_labels_expanded)
+
+        # Final layers
+        out = self.model[11:](out)
+
+        return out.view(-1, self.img_channels, self.img_size, self.img_size)
+
 
 class Discriminator(nn.Module):
     def __init__(self, discriminator_layer_size, img_size, class_num):
@@ -536,8 +674,17 @@ class Discriminator(nn.Module):
         return out.squeeze()
 
 if __name__ == '__main__':
+    print("model_v3")
     test1 = cGANconv_v3(100, 224, 13, 3)
+    print("model_v4")
     test2 = cGANconv_v4(100, 224, 13, 3)
+    print("model_v5")
     test3 = cGANconv_v5(100, 224, 13, 3)
+    print("model_v6")
+    test4 = cGANconv_v6(100, 224, 13, 3)
+    print("model_v7")
+    test5 = cGANconv_v7(100, 224, 13, 3)
+    print("model_v8")
+    test6 = cGANconv_v8(100, 224, 13, 3)
 
 
