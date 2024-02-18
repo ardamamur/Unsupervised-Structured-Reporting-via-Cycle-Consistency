@@ -292,7 +292,7 @@ class CycleGAN(pl.LightningModule):
         self.real_hard_report = batch['report'].float()
 
         # Softening real report labels if specified
-        if self.soft_label_type is not None:
+        if self.soft_label_type != 'hard':
             soft_report = convert_to_soft_labels(self.soft_label_type, self.real_hard_report, self.current_epoch)
             self.real_report = soft_report
         else:
@@ -430,7 +430,7 @@ class CycleGAN(pl.LightningModule):
         self.real_hard_report = hard_report
 
         # Softening real labels if specified
-        if self.soft_label_type is not None:
+        if self.soft_label_type != 'hard':
             soft_report = convert_to_soft_labels(self.soft_label_type, hard_report, self.current_epoch)
             self.real_report = soft_report
         else:
