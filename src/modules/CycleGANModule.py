@@ -59,8 +59,9 @@ class CycleGAN(pl.LightningModule):
         Initialize generators, discriminators, and buffers.
         """
         # Extract options
-        self.lambda_I = 10.0
-        self.lambda_R = 10.0
+        self.lambda_I_perceptual = self.opt['trainer']['lambda_I_perceptual']
+        self.lambda_I_L1_MSE = self.opt['trainer']['lambda_I_L1_MSE']
+        self.lambda_R = self.opt['trainer']['lambda_R']
         self.update_freq = self.opt['trainer']['update_freq']
         self.data_imputation = self.opt['dataset']['data_imputation']
         self.input_size = self.opt["dataset"]["input_size"]
@@ -72,7 +73,8 @@ class CycleGAN(pl.LightningModule):
         self.n_epochs = self.opt['trainer']['n_epoch']
         self.n_feat = self.opt["image_generator"]["n_feat"]
         self.n_T = self.opt["image_generator"]["n_T"]
-        self.soft_label_type = self.opt['trainer']['soft_label_type']   
+        self.soft_label_type = self.opt['trainer']['soft_label_type']
+        self.use_report_disc = self.opt['trainer']['use_report_disc']
 
     def define_networks(self):
         self.report_generator = self._get_report_generator()
@@ -99,27 +101,36 @@ class CycleGAN(pl.LightningModule):
 
     def define_metrics(self):
         self.val_metrics = {
-            'accuracy_micro' : Accuracy(task="multilabel", average="micro", num_labels=self.num_classes).to('cuda:0'),
-            'precision_micro' : Precision(task="multilabel", average="micro", num_labels=self.num_classes).to('cuda:0'),
-            'recall_micro' : Recall(task="multilabel", average="micro", num_labels=self.num_classes).to('cuda:0'),
-            'f1_micro' : F1Score(task="multilabel", average="micro", num_labels=self.num_classes).to('cuda:0'),
-            'accuracy_macro' : Accuracy(task="multilabel", average="macro", num_labels=self.num_classes).to('cuda:0'),
-            'precision_macro' : Precision(task="multilabel", average="macro", num_labels=self.num_classes).to('cuda:0'),
-            'recall_macro' : Recall(task="multilabel", average="macro", num_labels=self.num_classes).to('cuda:0'),
-            'f1_macro' : F1Score(task="multilabel", average="macro", num_labels=self.num_classes).to('cuda:0'),
-            'overall_precision' : [],
+            'accuracy_micro': Accuracy(task="multilabel", average="micro", num_labels=self.num_classes).to('cuda:0'),
+            'precision_micro': Precision(task="multilabel", average="micro", num_labels=self.num_classes).to('cuda:0'),
+            'recall_micro': Recall(task="multilabel", average="micro", num_labels=self.num_classes).to('cuda:0'),
+            'f1_micro': F1Score(task="multilabel", average="micro", num_labels=self.num_classes).to('cuda:0'),
+            'accuracy_macro': Accuracy(task="multilabel", average="macro", num_labels=self.num_classes).to('cuda:0'),
+            'precision_macro': Precision(task="multilabel", average="macro", num_labels=self.num_classes).to('cuda:0'),
+            'recall_macro': Recall(task="multilabel", average="macro", num_labels=self.num_classes).to('cuda:0'),
+            'f1_macro': F1Score(task="multilabel", average="macro", num_labels=self.num_classes).to('cuda:0'),
+            'overall_precision': [],
+            'accuracy_micro_cycle': Accuracy(task="multilabel", average="micro", num_labels=self.num_classes).to('cuda:0'),
+            'accuracy_macro_cycle': Accuracy(task="multilabel", average="macro", num_labels=self.num_classes).to('cuda:0'),
+            'precision_micro_cycle': Precision(task="multilabel", average="macro", num_labels=self.num_classes).to('cuda:0'),
+            'precision_macro_cycle': Precision(task="multilabel", average="macro", num_labels=self.num_classes).to('cuda:0'),
+            'recall_micro_cycle': Recall(task="multilabel", average="micro", num_labels=self.num_classes).to('cuda:0'),
+            'recall_macro_cycle': Recall(task="multilabel", average="macro", num_labels=self.num_classes).to('cuda:0'),
+            'f1_micro_cycle': F1Score(task="multilabel", average="micro", num_labels=self.num_classes).to('cuda:0'),
+            'f1_macro_cycle': F1Score(task="multilabel", average="macro", num_labels=self.num_classes).to('cuda:0'),
+            'overall_precision_cycle': []
         }
 
         self.train_metrics = {
-            'accuracy_micro' : Accuracy(task="multilabel", average="micro", num_labels=self.num_classes).to('cuda:0'),
-            'precision_micro' : Precision(task="multilabel", average="micro", num_labels=self.num_classes).to('cuda:0'),
-            'recall_micro' : Recall(task="multilabel", average="micro", num_labels=self.num_classes).to('cuda:0'),
-            'f1_micro' : F1Score(task="multilabel", average="micro", num_labels=self.num_classes).to('cuda:0'),
-            'accuracy_macro' : Accuracy(task="multilabel", average="macro", num_labels=self.num_classes).to('cuda:0'),
-            'precision_macro' : Precision(task="multilabel", average="macro", num_labels=self.num_classes).to('cuda:0'),
-            'recall_macro' : Recall(task="multilabel", average="macro", num_labels=self.num_classes).to('cuda:0'),
-            'f1_macro' : F1Score(task="multilabel", average="macro", num_labels=self.num_classes).to('cuda:0'),
-            'overall_precision' : [],
+            'accuracy_micro': Accuracy(task="multilabel", average="micro", num_labels=self.num_classes).to('cuda:0'),
+            'precision_micro': Precision(task="multilabel", average="micro", num_labels=self.num_classes).to('cuda:0'),
+            'recall_micro': Recall(task="multilabel", average="micro", num_labels=self.num_classes).to('cuda:0'),
+            'f1_micro': F1Score(task="multilabel", average="micro", num_labels=self.num_classes).to('cuda:0'),
+            'accuracy_macro': Accuracy(task="multilabel", average="macro", num_labels=self.num_classes).to('cuda:0'),
+            'precision_macro': Precision(task="multilabel", average="macro", num_labels=self.num_classes).to('cuda:0'),
+            'recall_macro': Recall(task="multilabel", average="macro", num_labels=self.num_classes).to('cuda:0'),
+            'f1_macro': F1Score(task="multilabel", average="macro", num_labels=self.num_classes).to('cuda:0'),
+            'overall_precision': [],
         }
 
 
@@ -144,6 +155,7 @@ class CycleGAN(pl.LightningModule):
         self.img_consistency_loss = self.loss_dict[self.opt['image_generator']['consistency_loss']]
         self.img_adversarial_loss = self.loss_dict[self.opt['image_discriminator']['adversarial_loss']]
         self.report_consistency_loss = self.loss_dict[self.opt['report_generator']['consistency_loss']]
+        self.report_consistency_loss_raw = nn.BCELoss()
         self.report_adversarial_loss = self.loss_dict[self.opt['report_discriminator']['adversarial_loss']]
 
     def forward(self, img):
@@ -204,7 +216,7 @@ class CycleGAN(pl.LightningModule):
         return optimizers, lr_schedulers
 
 
-    def log_gen_loss(self,loss):
+    def log_gen_loss(self, loss):
         # TODO : Log only avg values
         # total_loss, loss_IR, loss_RI, loss_IRI_perceptual, loss_IRI_L1, loss_IRI, loss_RIR = loss
         total_loss, loss_IR, loss_RI, loss_IRI_perceptual, loss_IRI_MSE, loss_cycle, loss_RIR = loss
@@ -233,16 +245,19 @@ class CycleGAN(pl.LightningModule):
     
     def generator_step(self, valid_img, valid_report):
         # adversarial_losses = GAN Loss
-        loss_IR = self.report_adversarial_loss(self.report_discriminator(self.fake_report), valid_report)
+        if self.use_report_disc:
+            loss_IR = self.report_adversarial_loss(self.report_discriminator(self.fake_report), valid_report)
+        else:
+            loss_IR = 0
         loss_RI = self.img_adversarial_loss(self.image_discriminator(self.fake_img), valid_img)
         loss_adversarial = (loss_IR + loss_RI)
 
         # consistency_losses = Cycle Loss
-        loss_IRI_perceptual = self.img_consistency_loss(self.real_img, self.cycle_img)
-        #loss_IRI_L1 = self.loss_dict['L1'](self.real_img, self.cycle_img)
-        loss_IRI_MSE = self.loss_dict['MSE'](self.real_img, self.cycle_img)
-        loss_RIR = self.report_consistency_loss(self.cycle_report, self.real_report)
-        loss_cycle = self.lambda_cycle * (loss_IRI_perceptual + loss_RIR) + 1 * loss_IRI_MSE
+        loss_IRI_perceptual = self.img_consistency_loss(self.real_img, self.cycle_img) * self.lambda_I_perceptual
+        # loss_IRI_L1 = self.loss_dict['L1'](self.real_img, self.cycle_img)
+        loss_IRI_MSE = self.loss_dict['MSE'](self.real_img, self.cycle_img) * self.lambda_I_L1_MSE
+        loss_RIR = self.report_consistency_loss(self.cycle_report, self.real_report) * self.lambda_R
+        loss_cycle = loss_IRI_perceptual + loss_IRI_MSE + loss_RIR
 
         loss = loss_adversarial + loss_cycle
 
@@ -257,7 +272,7 @@ class CycleGAN(pl.LightningModule):
         loss_real = self.report_adversarial_loss(self.report_discriminator(self.real_report), valid)
         loss_fake = self.report_adversarial_loss(self.report_discriminator(fake_report.detach()), fake)
         loss = (loss_real + loss_fake) * 0.5
-        self.log(self.phase + '_disc_loss_D_R', loss, on_step=True, on_epoch=True, prog_bar=True)
+        self.log(self.phase + '_loss_D_R', loss, on_step=True, on_epoch=True, prog_bar=True)
         return loss
 
     def img_discriminator_step(self, valid, fake):
@@ -266,79 +281,86 @@ class CycleGAN(pl.LightningModule):
         loss_real = self.img_adversarial_loss(self.image_discriminator(self.real_img), valid)
         loss_fake = self.img_adversarial_loss(self.image_discriminator(fake_image.detach()), fake)
         loss = (loss_real + loss_fake) * 0.5
-        self.log(self.phase + '_disc_loss_D_I', loss, on_step=True, on_epoch=True, prog_bar=True)
+        self.log(self.phase + '_loss_D_I', loss, on_step=True, on_epoch=True, prog_bar=True)
         return loss
         
 
     def training_step(self, batch, batch_idx, optimizer_idx):
         self.phase = 'train'
         self.real_img = batch['target'].float()
-        hard_report = batch['report'].float()
-        self.real_hard_report = hard_report
+        self.real_hard_report = batch['report'].float()
+
+        # Softening real report labels if specified
         if self.soft_label_type is not None:
-            soft_report = convert_to_soft_labels(self.soft_label_type, hard_report, self.current_epoch)
+            soft_report = convert_to_soft_labels(self.soft_label_type, self.real_hard_report, self.current_epoch)
             self.real_report = soft_report
         else:
-            self.real_report = hard_report
-        
-        
+            self.real_report = self.real_hard_report
+
         batch_nmb = self.real_img.shape[0]
 
-        z = Variable(torch.randn(batch_nmb, self.z_size)).float().to(self.device)
-        
-        # generate valid and fake labels
-        valid_img_sample = Tensor(np.ones((self.real_img.size(0), *self.image_discriminator.output_shape)))
-        fake_img_sample = Tensor(np.zeros((self.real_img.size(0), *self.image_discriminator.output_shape)))
-
-        
-        valid_report_sample = Tensor(np.ones((self.real_report.size(0), *self.report_discriminator.output_shape)))
-        fake_report_sample = Tensor(np.zeros((self.real_report.size(0), *self.report_discriminator.output_shape)))
-
-
-
+        # Logging metrics for report discriminator
         binary_tensor = torch.randint(0, 2, (self.real_report.size(0), self.num_classes)).to(self.device)
-        binary_noisy_tensor = binary_tensor.clone()
-        # add noise to the binary tensor
-        binary_noisy_tensor = binary_noisy_tensor + torch.rand_like(binary_noisy_tensor) * 0.3
-
-        # get generated image and reports from the generators
-        self.fake_report = self.report_generator(self.real_img)
-        self.fake_report = torch.sigmoid(self.fake_report)
-
+        binary_tensor = binary_tensor.float()
 
         binary_tensor_output = self.report_discriminator(binary_tensor)
         binary_tensor_score = torch.mean(binary_tensor_output).item()
-        self.log('binary_tensor_score', binary_tensor_score, on_step=True)
+        self.log('binary_tensor_score_report_disc', binary_tensor_score, on_step=True)
+
+        binary_noisy_tensor = binary_tensor.clone()
+        binary_noisy_tensor = torch.where(binary_noisy_tensor > 0.5,
+                                          binary_noisy_tensor - torch.rand_like(binary_noisy_tensor) * 0.1,
+                                          binary_noisy_tensor)
+        binary_noisy_tensor = torch.where(binary_noisy_tensor <= 0.5,
+                                          binary_noisy_tensor + torch.rand_like(binary_noisy_tensor) * 0.1,
+                                          binary_noisy_tensor)
 
         binary_noisy_tensor_output = self.report_discriminator(binary_noisy_tensor)
         binary_noisy_tensor_score = torch.mean(binary_noisy_tensor_output).item()
         self.log('binary_noisy_tensor_score', binary_noisy_tensor_score, on_step=True)
 
+        # Creating noise vector for image generation
+        z = Variable(torch.randn(batch_nmb, self.z_size)).float().to(self.device)
         
-        self.fake_img = self.image_generator(z, self.real_report)
+        # generate valid and fake vectors for image discriminator
+        valid_img_sample = Tensor(np.ones((self.real_img.size(0), *self.image_discriminator.output_shape)))
+        fake_img_sample = Tensor(np.zeros((self.real_img.size(0), *self.image_discriminator.output_shape)))
 
-        fake_reports_0_1 = torch.where(self.fake_report > 0.5, 1, 0)
-        
+        # generate valid and fake vectors for report discriminator
+        valid_report_sample = Tensor(np.ones((self.real_report.size(0), *self.report_discriminator.output_shape)))
+        fake_report_sample = Tensor(np.zeros((self.real_report.size(0), *self.report_discriminator.output_shape)))
+
+        # get generated image and reports from the generators
+        self.fake_report = self.report_generator(self.real_img)
+        self.fake_report = torch.sigmoid(self.fake_report)
+        # fake_reports_0_1 = torch.where(self.fake_report > 0.5, 1, 0)
         if not self.opt['trainer']['use_float_reports']:
             self.fake_reports = torch.where(self.fake_report > 0.5, 1, 0)
 
         self.fake_img = self.image_generator(z, self.real_report)
+
+        # Generate cycle reports and images
         self.cycle_report = self.report_generator(self.fake_img)
         self.cycle_img = self.image_generator(z, self.fake_reports)
 
-        self.train_metrics['accuracy_micro'].update(fake_reports_0_1, hard_report)
-        self.train_metrics['precision_micro'].update(fake_reports_0_1, hard_report)
-        self.train_metrics['recall_micro'].update(fake_reports_0_1, hard_report)
-        self.train_metrics['f1_micro'].update(fake_reports_0_1, hard_report)
+        # Calculate metrics for cycle reports and hard reports
+        cycle_reports = torch.sigmoid(self.cycle_report)
+        cycle_reports_0_1 = torch.where(cycle_reports > 0.5, 1, 0)
 
-        self.train_metrics['accuracy_macro'].update(fake_reports_0_1, hard_report)
-        self.train_metrics['precision_macro'].update(fake_reports_0_1, hard_report)
-        self.train_metrics['recall_macro'].update(fake_reports_0_1, hard_report)
-        self.train_metrics['f1_macro'].update(fake_reports_0_1, hard_report)
+        self.train_metrics['accuracy_micro'].update(cycle_reports_0_1, self.real_hard_report)
+        self.train_metrics['precision_micro'].update(cycle_reports_0_1, self.real_hard_report)
+        self.train_metrics['recall_micro'].update(cycle_reports_0_1, self.real_hard_report)
+        self.train_metrics['f1_micro'].update(cycle_reports_0_1, self.real_hard_report)
 
-        overall_precision = self.calculate_overall_precision(fake_reports_0_1, hard_report, batch_nmb)
+        self.train_metrics['accuracy_macro'].update(cycle_reports_0_1, self.real_hard_report)
+        self.train_metrics['precision_macro'].update(cycle_reports_0_1, self.real_hard_report)
+        self.train_metrics['recall_macro'].update(cycle_reports_0_1, self.real_hard_report)
+        self.train_metrics['f1_macro'].update(cycle_reports_0_1, self.real_hard_report)
+
+        overall_precision = self.calculate_overall_precision(cycle_reports_0_1, self.real_hard_report, batch_nmb)
         self.train_metrics['overall_precision'].append(overall_precision)
 
+        # Optimize generator
         if optimizer_idx == 0 or optimizer_idx == 1:
             if batch_idx % 2000 == 0:
                 # plot the images and reports
@@ -347,15 +369,18 @@ class CycleGAN(pl.LightningModule):
                 self.visualize_images(batch_idx)
                 if self.opt['trainer']['save_images']:
                     self.save_images(batch_idx)
+
             gen_loss = self.generator_step(valid_img=valid_img_sample, valid_report=valid_report_sample)
             if gen_loss > self.opt['trainer']['gen_threshold']:
                 return {"loss": gen_loss}
 
+        # Optimize image discriminator
         elif optimizer_idx == 2:
             img_disc_loss = self.img_discriminator_step(valid_img_sample, fake_img_sample)
             if img_disc_loss > self.opt['trainer']['img_disc_threshold']:
                 return {"loss": img_disc_loss}
 
+        # Optimize report discriminator
         elif optimizer_idx == 3:
             report_disc_loss = self.report_discriminator_step(valid_report_sample, fake_report_sample)
             if report_disc_loss > self.opt['trainer']['report_disc_threshold']:
@@ -365,17 +390,19 @@ class CycleGAN(pl.LightningModule):
         # log the metrics
         self.phase = 'train'
         train_log_metrics = {
-                'accuracy_micro' : self.train_metrics['accuracy_micro'].compute(),
-                'precision_micro' : self.train_metrics['precision_micro'].compute(),
-                'recall_micro' : self.train_metrics['recall_micro'].compute(),
-                'f1_micro' : self.train_metrics['f1_micro'].compute(),
-                'accuracy_macro' : self.train_metrics['accuracy_macro'].compute(),
-                'precision_macro' : self.train_metrics['precision_macro'].compute(),
-                'recall_macro' : self.train_metrics['recall_macro'].compute(),
-                'f1_macro' : self.train_metrics['f1_macro'].compute(),
-                'overall_precision' : torch.mean(torch.tensor(self.train_metrics['overall_precision']))
+                'accuracy_micro': self.train_metrics['accuracy_micro'].compute(),
+                'precision_micro': self.train_metrics['precision_micro'].compute(),
+                'recall_micro': self.train_metrics['recall_micro'].compute(),
+                'f1_micro': self.train_metrics['f1_micro'].compute(),
+                'accuracy_macro': self.train_metrics['accuracy_macro'].compute(),
+                'precision_macro': self.train_metrics['precision_macro'].compute(),
+                'recall_macro': self.train_metrics['recall_macro'].compute(),
+                'f1_macro': self.train_metrics['f1_macro'].compute(),
+                'overall_precision': torch.mean(torch.tensor(self.train_metrics['overall_precision']))
         }
+
         self.log_val_metrics(train_log_metrics, on_step=False)
+
         # reset the metrics
         self.train_metrics['accuracy_micro'].reset()
         self.train_metrics['precision_micro'].reset()
@@ -400,7 +427,8 @@ class CycleGAN(pl.LightningModule):
         self.real_img = batch['target'].float()
         hard_report = batch['report'].float()
         self.real_hard_report = hard_report
-        print(self.soft_label_type == None)
+
+        # Softening real labels if specified
         if self.soft_label_type is not None:
             soft_report = convert_to_soft_labels(self.soft_label_type, hard_report, self.current_epoch)
             self.real_report = soft_report
@@ -410,13 +438,14 @@ class CycleGAN(pl.LightningModule):
         
         batch_nmb = self.real_img.shape[0]
 
+        # Generate fake reports from real images
         self.fake_report = self.report_generator(self.real_img)
-        self.fake_report = torch.sigmoid(self.fake_report)
-        #self.fake_report_0_1 = torch.where(self.fake_report > 0.5, 1, 0)
-        self.fake_report_0_1 = torch.where(self.fake_report < 0.5, torch.tensor(0.0, device=self.fake_report.device), self.fake_report)
-        self.fake_report_0_1 = torch.where(self.fake_report_0_1 >= 0.5, torch.tensor(1.0, device=self.fake_report.device), self.fake_report_0_1)
+        fake_report = torch.sigmoid(self.fake_report)
+
+        self.fake_report_0_1 = torch.where(fake_report < 0.5, torch.tensor(0.0, device=fake_report.device), fake_report)
+        self.fake_report_0_1 = torch.where(self.fake_report_0_1 >= 0.5, torch.tensor(1.0, device=fake_report.device), self.fake_report_0_1)
         
-        # update the metrics
+        # Update metrics for paired data in validation set
         self.val_metrics['accuracy_micro'].update(self.fake_report_0_1, self.real_hard_report)
         self.val_metrics['precision_micro'].update(self.fake_report_0_1, self.real_hard_report)
         self.val_metrics['recall_micro'].update(self.fake_report_0_1, self.real_hard_report)
@@ -433,35 +462,58 @@ class CycleGAN(pl.LightningModule):
         
         # calculate the report cocnsistency loss
         val_loss_float = self.report_consistency_loss(self.fake_report, self.real_hard_report)
-        val_loss_0_1 = self.report_consistency_loss(self.fake_report_0_1, self.real_hard_report)
+        val_loss_0_1 = self.report_consistency_loss_raw(self.fake_report_0_1, self.real_hard_report)
 
         ##################################################
         # shuffle the val dataset since we need unpaired samples for below
         indices = torch.randperm(batch_nmb)
         self.real_report = self.real_report[indices]
-        
+
+        # Generate noise for image generator
         z = Variable(torch.randn(batch_nmb, self.z_size)).float().to(self.device)
 
-        # generate valid and fake labels
+        # generate valid and fake labels for image discriminator
         valid_img_sample = Tensor(np.ones((self.real_img.size(0), *self.image_discriminator.output_shape)))
         fake_img_sample = Tensor(np.zeros((self.real_img.size(0), *self.image_discriminator.output_shape)))
 
+        # generate valid and fake labels for report discriminator
         valid_report_sample = Tensor(np.ones((self.real_report.size(0), *self.report_discriminator.output_shape)))
         fake_report_sample = Tensor(np.zeros((self.real_report.size(0), *self.report_discriminator.output_shape)))
 
-        # generate image
+        # Generate image from real report
         self.fake_img = self.image_generator(z, self.real_report)
-        # reconstruct reports and images
+
+        # Generate cycle report and cycle image
         self.cycle_report = self.report_generator(self.fake_img)
         self.cycle_img = self.image_generator(z, self.fake_report)
-        
+
+        # Compute metrics for cycle
+        # Calculate metrics for cycle reports and hard reports
+        cycle_reports = torch.sigmoid(self.cycle_report)
+        cycle_reports_0_1 = torch.where(cycle_reports > 0.5, 1, 0)
+
+        self.val_metrics['accuracy_micro_cycle'].update(cycle_reports_0_1, self.real_hard_report)
+        self.val_metrics['precision_micro_cycle'].update(cycle_reports_0_1, self.real_hard_report)
+        self.val_metrics['recall_micro_cycle'].update(cycle_reports_0_1, self.real_hard_report)
+        self.val_metrics['f1_micro_cycle'].update(cycle_reports_0_1, self.real_hard_report)
+
+        self.val_metrics['accuracy_macro_cycle'].update(cycle_reports_0_1, self.real_hard_report)
+        self.val_metrics['precision_macro_cycle'].update(cycle_reports_0_1, self.real_hard_report)
+        self.val_metrics['recall_macro_cycle'].update(cycle_reports_0_1, self.real_hard_report)
+        self.val_metrics['f1_macro_cycle'].update(cycle_reports_0_1, self.real_hard_report)
+
+        overall_precision = self.calculate_overall_precision(cycle_reports_0_1, self.real_hard_report, batch_nmb)
+        self.val_metrics['overall_precision_cycle'].append(overall_precision)
+
         ############ Log Loss for each step ##############
         gen_loss = self.generator_step(valid_img=valid_img_sample, valid_report=valid_report_sample)
         img_disc_loss = self.img_discriminator_step(valid_img_sample, fake_img_sample)
         report_disc_loss = self.report_discriminator_step(valid_report_sample, fake_report_sample)
+
         # also log the val_loss_float and val_loss_0_1
         self.log('val_loss_float', val_loss_float, on_step=True)
         self.log('val_loss_0_1', val_loss_0_1, on_step=True)
+
         ##################################################
         # Optional to log metrics on validation step
         if self.opt['trainer']['log_val_metrics_on_step']:
@@ -471,15 +523,24 @@ class CycleGAN(pl.LightningModule):
             # self.visualize_images(batch_idx)
 
             val_log_metrics = {
-                'accuracy_micro' : self.val_metrics['accuracy_micro'].compute(),
-                'precision_micro' : self.val_metrics['precision_micro'].compute(),
-                'recall_micro' : self.val_metrics['recall_micro'].compute(),
-                'f1_micro' : self.val_metrics['f1_micro'].compute(),
-                'accuracy_macro' : self.val_metrics['accuracy_macro'].compute(),
-                'precision_macro' : self.val_metrics['precision_macro'].compute(),
-                'recall_macro' : self.val_metrics['recall_macro'].compute(),
-                'f1_macro' : self.val_metrics['f1_macro'].compute(),
-                'overall_precision' : torch.mean(torch.tensor(self.val_metrics['overall_precision']))
+                'accuracy_micro': self.val_metrics['accuracy_micro'].compute(),
+                'precision_micro': self.val_metrics['precision_micro'].compute(),
+                'recall_micro': self.val_metrics['recall_micro'].compute(),
+                'f1_micro': self.val_metrics['f1_micro'].compute(),
+                'accuracy_macro': self.val_metrics['accuracy_macro'].compute(),
+                'precision_macro': self.val_metrics['precision_macro'].compute(),
+                'recall_macro': self.val_metrics['recall_macro'].compute(),
+                'f1_macro': self.val_metrics['f1_macro'].compute(),
+                'overall_precision': torch.mean(torch.tensor(self.val_metrics['overall_precision'])),
+                'accuracy_micro_cycle': self.val_metrics['accuracy_micro_cycle'].compute(),
+                'accuracy_macro_cycle': self.val_metrics['accuracy_macro_cycle'].compute(),
+                'precision_micro_cycle': self.val_metrics['precision_micro_cycle'].compute(),
+                'precision_macro_cycle': self.val_metrics['precision_macro_cycle'].compute(),
+                'recall_micro_cycle': self.val_metrics['recall_micro_cycle'].compute(),
+                'recall_macro_cycle': self.val_metrics['recall_macro_cycle'].compute(),
+                'f1_micro_cycle': self.val_metrics['f1_micro_cycle'].compute(),
+                'f1_macro_cycle': self.val_metrics['f1_macro_cycle'].compute(),
+                'overall_precision_cycle': torch.mean(torch.tensor(self.val_metrics['overall_precision_cycle']))
             }
             self.log_val_metrics(val_log_metrics, on_step=True)
         ###################################################
@@ -489,17 +550,28 @@ class CycleGAN(pl.LightningModule):
         self.phase = 'val'
         # log the metrics
         val_log_metrics = {
-                'accuracy_micro' : self.val_metrics['accuracy_micro'].compute(),
-                'precision_micro' : self.val_metrics['precision_micro'].compute(),
-                'recall_micro' : self.val_metrics['recall_micro'].compute(),
-                'f1_micro' : self.val_metrics['f1_micro'].compute(),
-                'accuracy_macro' : self.val_metrics['accuracy_macro'].compute(),
-                'precision_macro' : self.val_metrics['precision_macro'].compute(),
-                'recall_macro' : self.val_metrics['recall_macro'].compute(),
-                'f1_macro' : self.val_metrics['f1_macro'].compute(),
-                'overall_precision' : torch.mean(torch.tensor(self.val_metrics['overall_precision']))
+                'accuracy_micro': self.val_metrics['accuracy_micro'].compute(),
+                'precision_micro': self.val_metrics['precision_micro'].compute(),
+                'recall_micro': self.val_metrics['recall_micro'].compute(),
+                'f1_micro': self.val_metrics['f1_micro'].compute(),
+                'accuracy_macro': self.val_metrics['accuracy_macro'].compute(),
+                'precision_macro': self.val_metrics['precision_macro'].compute(),
+                'recall_macro': self.val_metrics['recall_macro'].compute(),
+                'f1_macro': self.val_metrics['f1_macro'].compute(),
+                'overall_precision': torch.mean(torch.tensor(self.val_metrics['overall_precision'])),
+                'accuracy_micro_cycle': self.val_metrics['accuracy_micro_cycle'].compute(),
+                'accuracy_macro_cycle': self.val_metrics['accuracy_macro_cycle'].compute(),
+                'precision_micro_cycle': self.val_metrics['precision_micro_cycle'].compute(),
+                'precision_macro_cycle': self.val_metrics['precision_macro_cycle'].compute(),
+                'recall_micro_cycle': self.val_metrics['recall_micro_cycle'].compute(),
+                'recall_macro_cycle': self.val_metrics['recall_macro_cycle'].compute(),
+                'f1_micro_cycle': self.val_metrics['f1_micro_cycle'].compute(),
+                'f1_macro_cycle': self.val_metrics['f1_macro_cycle'].compute(),
+                'overall_precision_cycle': torch.mean(torch.tensor(self.val_metrics['overall_precision_cycle']))
+
         }
         self.log_val_metrics(val_log_metrics, on_step=False)
+
         # reset the metrics
         self.val_metrics['accuracy_micro'].reset()
         self.val_metrics['precision_micro'].reset()
@@ -510,6 +582,15 @@ class CycleGAN(pl.LightningModule):
         self.val_metrics['recall_macro'].reset()
         self.val_metrics['f1_macro'].reset()
         self.val_metrics['overall_precision'] = []
+        self.val_metrics['accuracy_micro_cycle'].reset()
+        self.val_metrics['accuracy_macro_cycle'].reset()
+        self.val_metrics['precision_micro_cycle'].reset()
+        self.val_metrics['precision_macro_cycle'].reset()
+        self.val_metrics['recall_micro_cycle'].reset()
+        self.val_metrics['recall_macro_cycle'].reset()
+        self.val_metrics['f1_micro_cycle'].reset()
+        self.val_metrics['f1_macro_cycle'].reset()
+        self.val_metrics['overall_precision_cycle'] = []
 
 
     def test_step(self, batch, batch_idx):
@@ -562,15 +643,12 @@ class CycleGAN(pl.LightningModule):
         report_text_cycle = ', '.join(report_text_labels_cycle)
         # Convert tensor elements to strings for joining
         report_text_cycle_raw = ', '.join([str(item.item()) for item in generated_report_raw])
-
-
-        step = self.current_epoch * batch_idx + batch_idx
         
-        self.logger.experiment.add_text(f"On step {self.phase} cycle report", report_text_cycle, step)
-        self.logger.experiment.add_text(f"On step {self.phase} real report", report_text_real , step)
-        self.logger.experiment.add_text(f"On step {self.phase} cycle report float", report_text_cycle_raw, step)
-        self.logger.experiment.add_text(f"On step {self.phase} real report soft", report_text_real_raw, step)
-        self.logger.experiment.add_text(f"On step {self.phase} real report hard", report_text_real_raw_hard, step)
+        self.logger.experiment.add_text(f"On step {self.phase} cycle report", report_text_cycle)
+        self.logger.experiment.add_text(f"On step {self.phase} real report", report_text_real)
+        self.logger.experiment.add_text(f"On step {self.phase} cycle report float", report_text_cycle_raw)
+        self.logger.experiment.add_text(f"On step {self.phase} real report soft", report_text_real_raw)
+        self.logger.experiment.add_text(f"On step {self.phase} real report hard", report_text_real_raw_hard)
 
     def save_images(self, batch_idx):
         # Process and save the real image

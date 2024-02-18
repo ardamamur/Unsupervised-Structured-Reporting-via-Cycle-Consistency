@@ -23,7 +23,7 @@ dataset:
   num_workers : 16
   paired: False
   use_all_images: False
-  num_images: 50000
+  num_images: 50
 
 
 image_generator:
@@ -84,7 +84,9 @@ report_discriminator:
 
 trainer :
   num_classes : 13
-  lambda_cycle_loss: 10
+  lambda_I_perceptual: 10
+  lambda_I_L1_MSE: 1
+  lambda_R: 10
   seed : 42
   save_images : False
   buffer_size : 500
@@ -108,6 +110,7 @@ trainer :
   soft_label_type : 'gaussian'
   resume_training : False
   resume_version : 0
+  use_report_disc: True
 
 
 
