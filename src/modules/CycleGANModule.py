@@ -264,7 +264,7 @@ class CycleGAN(pl.LightningModule):
         fake_image = self.buffer_images(self.fake_img)
         #discriminator loss
         loss_real = self.img_adversarial_loss(self.image_discriminator(self.real_img), valid)
-        loss_fake = self.img_adversarial_loss(self.image_discriminator(fake_image), fake)
+        loss_fake = self.img_adversarial_loss(self.image_discriminator(fake_image.detach()), fake)
         loss = (loss_real + loss_fake) * 0.5
         self.log(self.phase + '_disc_loss_D_I', loss, on_step=True, on_epoch=True, prog_bar=True)
         return loss
