@@ -206,15 +206,16 @@ class CycleGAN(pl.LightningModule):
 
     def log_gen_loss(self,loss):
         # TODO : Log only avg values
-        total_loss, loss_IR, loss_RI, loss_IRI_perceptual, loss_IRI_L1, loss_IRI, loss_RIR = loss
+        # total_loss, loss_IR, loss_RI, loss_IRI_perceptual, loss_IRI_L1, loss_IRI, loss_RIR = loss
+        total_loss, loss_IR, loss_RI, loss_IRI_perceptual, loss_IRI_MSE, loss_cycle, loss_RIR = loss
         metrics = {
             'loss_G_total' : total_loss,
             'loss_G_IR' : loss_IR,
             'loss_G_RI' : loss_RI,
             'loss_G_IRI_perceptual' : loss_IRI_perceptual,
-            'loss_G_IRI_L1': loss_IRI_L1,
-            'loss_G_IRI' : loss_IRI,
-            'loss_G_RIR' : loss_RIR
+            'loss_G_IRI_MSE': loss_IRI_MSE,
+            'loss_G_RIR' : loss_RIR,
+            'loss_G_cycle_total' : loss_cycle,
         }
         # update key names with phase
 
@@ -234,14 +235,18 @@ class CycleGAN(pl.LightningModule):
         # adversarial_losses = GAN Loss
         loss_IR = self.report_adversarial_loss(self.report_discriminator(self.fake_report), valid_report)
         loss_RI = self.img_adversarial_loss(self.image_discriminator(self.fake_img), valid_img)
+        loss_adversarial = (loss_IR + loss_RI)
+
         # consistency_losses = Cycle Loss
         loss_IRI_perceptual = self.img_consistency_loss(self.real_img, self.cycle_img)
-        loss_IRI_L1 = self.loss_dict['L1'](self.real_img, self.cycle_img)
-        loss_IRI = (loss_IRI_perceptual + loss_IRI_L1) * self.lambda_I
-        
-        loss_RIR = self.report_consistency_loss(self.cycle_report, self.real_report) * self.lambda_R
-        loss = loss_IR + loss_RI + loss_IRI + loss_RIR
-        self.log_gen_loss((loss, loss_IR, loss_RI, loss_IRI_perceptual, loss_IRI_L1, loss_IRI, loss_RIR))
+        #loss_IRI_L1 = self.loss_dict['L1'](self.real_img, self.cycle_img)
+        loss_IRI_MSE = self.loss_dict['MSE'](self.real_img, self.cycle_img)
+        loss_RIR = self.report_consistency_loss(self.cycle_report, self.real_report)
+        loss_cycle = self.lambda_cycle * (loss_IRI_perceptual + loss_RIR) + 1 * loss_IRI_MSE
+
+        loss = loss_adversarial + loss_cycle
+
+        self.log_gen_loss((loss, loss_IR, loss_RI, loss_IRI_perceptual, loss_IRI_MSE, loss_cycle, loss_RIR))
         
         return loss
         
