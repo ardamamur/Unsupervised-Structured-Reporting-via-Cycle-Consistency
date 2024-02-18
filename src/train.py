@@ -76,7 +76,7 @@ def main(params):
 
 
 if __name__ == '__main__':
-    # parser = argparse.ArgumentParser(description='Training settings')
+    """"# parser = argparse.ArgumentParser(description='Training settings')
     parser.add_argument('--n_epochs', type=int, default=5)
     parser.add_argument('--batch_size', type=int, default=16)
     parser.add_argument('--use_all_images', action='store_true', default=False)
@@ -92,6 +92,6 @@ if __name__ == '__main__':
     params['trainer']['n_epoch'] = arguments.n_epochs
     params['trainer']['soft_label_type'] = arguments.soft_label_type
     params['report_generator']['learning_rate'] = arguments.report_gen_lr
-    params['report_generator']['decay'] = arguments.without_decay
-    
+    params['report_generator']['decay'] = arguments.without_decay"""
+    params = read_config(env_settings.CONFIG)
     main(params)

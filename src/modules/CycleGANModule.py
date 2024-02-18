@@ -18,7 +18,7 @@ from utils.buffer import ReportBuffer, ImageBuffer
 from utils.utils import convert_to_soft_labels
 from models.Discriminator import *
 from models.cGAN import cGAN, cGANconv
-from models.DDPM import ContextUnet, DDPM
+# from models.DDPM import ContextUnet, DDPM
 from utils.environment_settings import env_settings
 from losses.Losses import *
 from losses.Metrics import *
@@ -209,12 +209,12 @@ class CycleGAN(pl.LightningModule):
         total_loss, loss_IR, loss_RI, loss_IRI_perceptual, loss_IRI_L1, loss_IRI, loss_RIR = loss
         metrics = {
             'loss_G_total' : total_loss,
-            'loss_IR' : loss_IR,
-            'loss_RI' : loss_RI,
-            'loss_IRI_perceptual' : loss_IRI_perceptual,
-            'loss_IRI_L1': loss_IRI_L1,
-            'loss_IRI' : loss_IRI,
-            'loss_RIR' : loss_RIR
+            'loss_G_IR' : loss_IR,
+            'loss_G_RI' : loss_RI,
+            'loss_G_IRI_perceptual' : loss_IRI_perceptual,
+            'loss_G_IRI_L1': loss_IRI_L1,
+            'loss_G_IRI' : loss_IRI,
+            'loss_G_RIR' : loss_RIR
         }
         # update key names with phase
 
@@ -241,7 +241,7 @@ class CycleGAN(pl.LightningModule):
         
         loss_RIR = self.report_consistency_loss(self.cycle_report, self.real_report) * self.lambda_R
         loss = loss_IR + loss_RI + loss_IRI + loss_RIR
-        self.log_gen_loss((loss, loss_IR, loss_RI, loss_IRI_perceptual,loss_IRI_L1, loss_IRI, loss_RIR))
+        self.log_gen_loss((loss, loss_IR, loss_RI, loss_IRI_perceptual, loss_IRI_L1, loss_IRI, loss_RIR))
         
         return loss
         
@@ -252,7 +252,7 @@ class CycleGAN(pl.LightningModule):
         loss_real = self.report_adversarial_loss(self.report_discriminator(self.real_report), valid)
         loss_fake = self.report_adversarial_loss(self.report_discriminator(fake_report.detach()), fake)
         loss = (loss_real + loss_fake) * 0.5
-        self.log(self.phase + '_loss_D_R', loss, on_step=True)
+        self.log(self.phase + '_disc_loss_D_R', loss, on_step=True, on_epoch=True, prog_bar=True)
         return loss
 
     def img_discriminator_step(self, valid, fake):
@@ -261,7 +261,7 @@ class CycleGAN(pl.LightningModule):
         loss_real = self.img_adversarial_loss(self.image_discriminator(self.real_img), valid)
         loss_fake = self.img_adversarial_loss(self.image_discriminator(fake_image), fake)
         loss = (loss_real + loss_fake) * 0.5
-        self.log(self.phase + '_loss_D_I', loss, on_step=True)
+        self.log(self.phase + '_disc_loss_D_I', loss, on_step=True, on_epoch=True, prog_bar=True)
         return loss
         
 
@@ -291,19 +291,19 @@ class CycleGAN(pl.LightningModule):
 
         # get generated image and reports from the generators
         self.fake_report = self.report_generator(self.real_img)
+        self.fake_report = torch.sigmoid(self.fake_report)
 
         
         self.fake_img = self.image_generator(z, self.real_report)
-  
-        fake_reports = torch.sigmoid(self.fake_report)
-        fake_reports_0_1 = torch.where(fake_reports > 0.5, 1, 0)
+
+        fake_reports_0_1 = torch.where(self.fake_report > 0.5, 1, 0)
         
         if not self.opt['trainer']['use_float_reports']:
-            fake_reports = torch.where(fake_reports > 0.5, 1, 0)
+            self.fake_reports = torch.where(self.fake_report > 0.5, 1, 0)
 
         self.fake_img = self.image_generator(z, self.real_report)
         self.cycle_report = self.report_generator(self.fake_img)
-        self.cycle_img = self.image_generator(z, fake_reports)
+        self.cycle_img = self.image_generator(z, self.fake_reports)
 
         self.train_metrics['accuracy_micro'].update(fake_reports_0_1, hard_report)
         self.train_metrics['precision_micro'].update(fake_reports_0_1, hard_report)
@@ -318,16 +318,14 @@ class CycleGAN(pl.LightningModule):
         overall_precision = self.calculate_overall_precision(fake_reports_0_1, hard_report, batch_nmb)
         self.train_metrics['overall_precision'].append(overall_precision)
 
-
-        if ((batch_idx+1)*self.batch_size) % self.update_freq == 0:
-            # plot the images and reports
-            self.log_images_on_cycle(batch_idx)
-            self.log_reports_on_cycle(batch_idx)
-            self.visualize_images(batch_idx)
-            if self.opt['trainer']['save_images']:
-                self.save_images(batch_idx)
-
         if optimizer_idx == 0 or optimizer_idx == 1:
+            if batch_idx % 2000 == 0:
+                # plot the images and reports
+                self.log_images_on_cycle(batch_idx)
+                self.log_reports_on_cycle(batch_idx)
+                self.visualize_images(batch_idx)
+                if self.opt['trainer']['save_images']:
+                    self.save_images(batch_idx)
             gen_loss = self.generator_step(valid_img=valid_img_sample, valid_report=valid_report_sample)
             if gen_loss > self.opt['trainer']['gen_threshold']:
                 return {"loss": gen_loss}
@@ -342,7 +340,7 @@ class CycleGAN(pl.LightningModule):
             if report_disc_loss > self.opt['trainer']['report_disc_threshold']:
                 return {"loss": report_disc_loss}
 
-    def training_epoch_end(self):
+    def on_train_epoch_end(self):
         # log the metrics
         self.phase = 'train'
         train_log_metrics = {
@@ -356,7 +354,7 @@ class CycleGAN(pl.LightningModule):
                 'f1_macro' : self.train_metrics['f1_macro'].compute(),
                 'overall_precision' : torch.mean(torch.tensor(self.train_metrics['overall_precision']))
         }
-        self.log_val_metrics(train_metrics, on_step=False)
+        self.log_val_metrics(train_log_metrics, on_step=False)
         # reset the metrics
         self.train_metrics['accuracy_micro'].reset()
         self.train_metrics['precision_micro'].reset()
@@ -381,6 +379,7 @@ class CycleGAN(pl.LightningModule):
         self.real_img = batch['target'].float()
         hard_report = batch['report'].float()
         self.real_hard_report = hard_report
+        print(self.soft_label_type == None)
         if self.soft_label_type is not None:
             soft_report = convert_to_soft_labels(self.soft_label_type, hard_report, self.current_epoch)
             self.real_report = soft_report
@@ -433,7 +432,7 @@ class CycleGAN(pl.LightningModule):
         self.fake_img = self.image_generator(z, self.real_report)
         # reconstruct reports and images
         self.cycle_report = self.report_generator(self.fake_img)
-        self.cycle_img = self.image_generator(z, self.fake_report_0_1)
+        self.cycle_img = self.image_generator(z, self.fake_report)
         
         ############ Log Loss for each step ##############
         gen_loss = self.generator_step(valid_img=valid_img_sample, valid_report=valid_report_sample)
@@ -448,7 +447,7 @@ class CycleGAN(pl.LightningModule):
 
             self.log_images_on_cycle(batch_idx)
             self.log_reports_on_cycle(batch_idx)
-            self.visualize_images(batch_idx)
+            # self.visualize_images(batch_idx)
 
             val_log_metrics = {
                 'accuracy_micro' : self.val_metrics['accuracy_micro'].compute(),

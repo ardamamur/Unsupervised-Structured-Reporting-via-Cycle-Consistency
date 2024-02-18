@@ -18,7 +18,7 @@ class   DataHandler:
         self.master_df = pd.read_csv(env_settings.MASTER_LIST[self.data_imputation])
         self.paired = self.opt["paired"]
 
-        if not self.opt["use_all_images"]:
+        if not self.opt["use_all_images"] and self.opt["num_images"] > 1:
             # reduce the number of images
             # get sample for train split %80 * num_images
             # get sample for val split %10 * num_images
@@ -31,6 +31,19 @@ class   DataHandler:
             train_df = self.reduce_data(train_df, num_samples=int(self.opt["num_images"] * 0.8))
             val_df = self.reduce_data(val_df, num_samples=int(self.opt["num_images"] * 0.1))
             test_df = self.reduce_data(test_df, num_samples=int(self.opt["num_images"] * 0.1))
+
+            self.master_df = pd.concat([train_df, val_df, test_df])
+            # reset the index
+            self.master_df = self.master_df.reset_index(drop=True)
+
+        elif not self.opt["use_all_images"] and self.opt["num_images"] == 1:
+            train_df = self.master_df[self.master_df["split"] == "train"]
+            val_df = self.master_df[self.master_df["split"] == "val"]
+            test_df = self.master_df[self.master_df["split"] == "test"]
+
+            train_df = train_df.iloc[0:1]
+            val_df = val_df.iloc[0:1]
+            test_df = test_df.iloc[0:1]
 
             self.master_df = pd.concat([train_df, val_df, test_df])
             # reset the index
