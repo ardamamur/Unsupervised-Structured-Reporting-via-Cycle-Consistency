@@ -436,13 +436,14 @@ class CycleGAN(pl.LightningModule):
             self.real_report = soft_report
         else:
             self.real_report = hard_report
+
+        #self.real_report = hard_report
         
         
         batch_nmb = self.real_img.shape[0]
 
         # Generate fake reports from real images
         self.fake_report = self.report_generator(self.real_img)
-        # POSSIBLE MISTAKE #
         self.fake_report = torch.sigmoid(self.fake_report)
     
         #self.fake_report_0_1 = torch.where(self.fake_report < 0.5, torch.tensor(0.0, device=self.fake_report.device), self.fake_report)
@@ -471,7 +472,9 @@ class CycleGAN(pl.LightningModule):
         ##################################################
         # shuffle the val dataset since we need unpaired samples for below
         indices = torch.randperm(batch_nmb)
-        self.real_report = self.real_report[indices]
+        
+        # shuffle the real images and reports
+        # self.real_report = self.real_report[indices]
 
         # Generate noise for image generator
         z = Variable(torch.randn(batch_nmb, self.z_size)).float().to(self.device)
