@@ -336,13 +336,14 @@ class CycleGAN(pl.LightningModule):
         self.fake_report = torch.sigmoid(self.fake_report)
         # fake_reports_0_1 = torch.where(self.fake_report > 0.5, 1, 0)
         if not self.opt['trainer']['use_float_reports']:
-            self.fake_reports = torch.where(self.fake_report > 0.5, 1, 0)
+            raise NotImplementedError("Using torch.where for predicted reports are not recommended! Uncomment the line and re-start the training")
+            # self.fake_report = torch.where(self.fake_report > 0.5, 1, 0)
 
         self.fake_img = self.image_generator(z, self.real_report)
 
         # Generate cycle reports and images
         self.cycle_report = self.report_generator(self.fake_img)
-        self.cycle_img = self.image_generator(z, self.fake_reports)
+        self.cycle_img = self.image_generator(z, self.fake_report)
 
         # Calculate metrics for cycle reports and hard reports
         cycle_reports = torch.sigmoid(self.cycle_report)
@@ -441,11 +442,13 @@ class CycleGAN(pl.LightningModule):
 
         # Generate fake reports from real images
         self.fake_report = self.report_generator(self.real_img)
-        fake_report = torch.sigmoid(self.fake_report)
+        # POSSIBLE MISTAKE #
+        self.fake_report = torch.sigmoid(self.fake_report)
+    
+        #self.fake_report_0_1 = torch.where(self.fake_report < 0.5, torch.tensor(0.0, device=self.fake_report.device), self.fake_report)
+        #self.fake_report_0_1 = torch.where(self.fake_report_0_1 >= 0.5, torch.tensor(1.0, device=self.fake_report.device), self.fake_report_0_1)
+        self.fake_report_0_1 = torch.where(self.fake_report > 0.5, 1., 0.)
 
-        self.fake_report_0_1 = torch.where(fake_report < 0.5, torch.tensor(0.0, device=fake_report.device), fake_report)
-        self.fake_report_0_1 = torch.where(self.fake_report_0_1 >= 0.5, torch.tensor(1.0, device=fake_report.device), self.fake_report_0_1)
-        
         # Update metrics for paired data in validation set
         self.val_metrics['accuracy_micro'].update(self.fake_report_0_1, self.real_hard_report)
         self.val_metrics['precision_micro'].update(self.fake_report_0_1, self.real_hard_report)
@@ -490,8 +493,8 @@ class CycleGAN(pl.LightningModule):
 
         # Compute metrics for cycle
         # Calculate metrics for cycle reports and hard reports
-        cycle_reports = torch.sigmoid(self.cycle_report)
-        cycle_reports_0_1 = torch.where(cycle_reports > 0.5, 1, 0)
+        self.cycle_report = torch.sigmoid(self.cycle_report)
+        cycle_reports_0_1 = torch.where(self.cycle_report > 0.5, 1, 0)
 
         self.val_metrics['accuracy_micro_cycle'].update(cycle_reports_0_1, self.real_hard_report)
         self.val_metrics['precision_micro_cycle'].update(cycle_reports_0_1, self.real_hard_report)
@@ -612,9 +615,11 @@ class CycleGAN(pl.LightningModule):
         real_img_tensor = real_img_1
         fake_img_tensor = fake_img_1
 
-        self.logger.experiment.add_image(f"On step {self.phase} cycle img", cycle_img_tensor, dataformats='CHW')
-        self.logger.experiment.add_image(f"On step {self.phase} real img", real_img_tensor, dataformats='CHW')
-        self.logger.experiment.add_image(f"On step {self.phase} fake_img", fake_img_tensor, dataformats='CHW')
+        step = self.current_epoch * batch_idx + batch_idx
+
+        self.logger.experiment.add_image(f"On step {self.phase} cycle img", cycle_img_tensor, step, dataformats='CHW')
+        self.logger.experiment.add_image(f"On step {self.phase} real img", real_img_tensor, step, dataformats='CHW')
+        self.logger.experiment.add_image(f"On step {self.phase} fake_img", fake_img_tensor, step, dataformats='CHW')
 
     def log_reports_on_cycle(self, batch_idx):
         real_report = self.real_report[0]
@@ -642,12 +647,14 @@ class CycleGAN(pl.LightningModule):
         report_text_cycle = ', '.join(report_text_labels_cycle)
         # Convert tensor elements to strings for joining
         report_text_cycle_raw = ', '.join([str(item.item()) for item in generated_report_raw])
+
+        step = self.current_epoch * batch_idx + batch_idx
         
-        self.logger.experiment.add_text(f"On step {self.phase} cycle report", report_text_cycle)
-        self.logger.experiment.add_text(f"On step {self.phase} real report", report_text_real)
-        self.logger.experiment.add_text(f"On step {self.phase} cycle report float", report_text_cycle_raw)
-        self.logger.experiment.add_text(f"On step {self.phase} real report soft", report_text_real_raw)
-        self.logger.experiment.add_text(f"On step {self.phase} real report hard", report_text_real_raw_hard)
+        self.logger.experiment.add_text(f"On step {self.phase} cycle report", report_text_cycle, step)
+        self.logger.experiment.add_text(f"On step {self.phase} real report", report_text_real, step)
+        self.logger.experiment.add_text(f"On step {self.phase} cycle report float", report_text_cycle_raw, step)
+        self.logger.experiment.add_text(f"On step {self.phase} real report soft", report_text_real_raw, step)
+        self.logger.experiment.add_text(f"On step {self.phase} real report hard", report_text_real_raw_hard, step)
 
     def save_images(self, batch_idx):
         # Process and save the real image
