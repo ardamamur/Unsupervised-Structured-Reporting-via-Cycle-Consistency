@@ -20,7 +20,7 @@ dataset:
   data_imputation : "zeros"
   val_size : 0.1
   test_size : 0.1
-  num_workers : 16
+  num_workers : 8
   paired: False
   use_all_images: False
   num_images: 50000
@@ -67,7 +67,7 @@ report_generator:
   dropout_prob: 0.5
   consistency_loss : 'BCE'
   embedding_size : 512
-  decay: False
+  decay: True
   decay_rate: 1e-5
 
 
@@ -90,7 +90,7 @@ trainer :
   seed : 42
   save_images : False
   buffer_size : 500
-  use_float_reports : False
+  use_float_reports : True
   scheduler_interval : 'step'
   scheduler_iter : 5
   check_val_every_n_epochs: 1
@@ -109,7 +109,7 @@ trainer :
   log_val_metrics_on_step : True
   soft_label_type : 'gaussian'
   resume_training : False
-  resume_version : 0
+  resume_version : 3
   use_report_disc: True
 
 
