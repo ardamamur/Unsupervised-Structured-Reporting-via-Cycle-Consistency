@@ -346,6 +346,7 @@ class CycleGAN(pl.LightningModule):
         self.cycle_img = self.image_generator(z, self.fake_report)
 
         # Calculate metrics for cycle reports and hard reports
+        # we shouldnt apply sigmoid to cycle reports since we are using BCE with Logits Loss
         cycle_reports = torch.sigmoid(self.cycle_report)
         cycle_reports_0_1 = torch.where(cycle_reports > 0.5, 1, 0)
 
@@ -498,8 +499,8 @@ class CycleGAN(pl.LightningModule):
 
         # Compute metrics for cycle
         # Calculate metrics for cycle reports and hard reports
-        self.cycle_report = torch.sigmoid(self.cycle_report)
-        cycle_reports_0_1 = torch.where(self.cycle_report > 0.5, 1, 0)
+        cycle_reports = torch.sigmoid(self.cycle_report)
+        cycle_reports_0_1 = torch.where(cycle_reports > 0.5, 1, 0)
 
         self.val_metrics['accuracy_micro_cycle'].update(cycle_reports_0_1, self.real_hard_report)
         self.val_metrics['precision_micro_cycle'].update(cycle_reports_0_1, self.real_hard_report)
