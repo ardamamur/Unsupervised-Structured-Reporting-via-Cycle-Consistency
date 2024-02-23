@@ -430,14 +430,16 @@ class CycleGAN(pl.LightningModule):
         hard_report = batch['report'].float()
         self.real_hard_report = hard_report
 
+        """
         # Softening real labels if specified
         if self.soft_label_type != 'hard':
             soft_report = convert_to_soft_labels(self.soft_label_type, hard_report, self.current_epoch)
             self.real_report = soft_report
         else:
             self.real_report = hard_report
+        """
 
-        #self.real_report = hard_report
+        self.real_report = hard_report
         
         
         batch_nmb = self.real_img.shape[0]
@@ -474,7 +476,7 @@ class CycleGAN(pl.LightningModule):
         indices = torch.randperm(batch_nmb)
         
         # shuffle the real images and reports
-        # self.real_report = self.real_report[indices]
+        self.real_report = self.real_report[indices]
 
         # Generate noise for image generator
         z = Variable(torch.randn(batch_nmb, self.z_size)).float().to(self.device)
