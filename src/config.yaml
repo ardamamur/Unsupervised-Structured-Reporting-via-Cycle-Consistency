@@ -20,14 +20,14 @@ dataset:
   data_imputation : "zeros"
   val_size : 0.1
   test_size : 0.1
-  num_workers : 8
+  num_workers : 16
   paired: False
-  use_all_images: False
+  use_all_images: True
   num_images: 50000
 
 
 image_generator:
-  model : "cgan_v3"
+  model : "cgan_v1"
   learning_rate: 0.001
   optimizer: 'Adam' # AdamW
   generator_layer_size : [256, 512, 1024]

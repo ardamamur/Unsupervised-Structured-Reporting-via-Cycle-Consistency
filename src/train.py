@@ -25,9 +25,10 @@ def main(params):
     processor = DataHandler(opt=params["dataset"])
     chexpert_data_module = ChexpertDataModule(opt=params['dataset'], processor=processor)
     CycleGAN_module = CycleGAN(opt=params)
-    experiment = (env_settings.EXPERIMENTS + params['image_generator']['model']
+    # experiment = (env_settings.EXPERIMENTS + params['image_generator']['model']
+    #               + "_" + params["report_generator"]["model"])
+    experiment = (env_settings.EXPERIMENTS + 'cgan'
                   + "_" + params["report_generator"]["model"])
-
 
     logger = TensorBoardLogger(experiment, default_hp_metric=False)
 
