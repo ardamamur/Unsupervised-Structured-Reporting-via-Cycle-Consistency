@@ -27,7 +27,7 @@ dataset:
 
 
 image_generator:
-  model : "cgan"
+  model : "cgan_v3"
   learning_rate: 0.001
   optimizer: 'Adam' # AdamW
   generator_layer_size : [256, 512, 1024]
@@ -98,9 +98,9 @@ trainer :
   update_freq : 50
   adaptive_threshold_gen : False
   adaptive_threshold_disc : False
-  gen_threshold : 0.20
-  img_disc_threshold : 0.15
-  report_disc_threshold: 0.2
+  gen_threshold : 0.2
+  img_disc_threshold : 0.2
+  report_disc_threshold: 0
   log_images_steps: 100
   log_metrics_step : 10
   lr_scheduler : 'step_lr'

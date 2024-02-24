@@ -10,7 +10,7 @@ env_settings.DATA = "/home/data/DIVA/mimic/mimic-cxr-jpg/2.0.0/files"
 #env_settings.DATA = "/home/max/Desktop/MLMI/data/mimic-cxr-jpg/files"
 env_settings.EXPERIMENTS = "/home/guests/usr_mlmi/arda/Unsupervised-Structured-Reporting-via-Cycle-Consistency/experiments/"
 #env_settings.EXPERIMENTS = "/home/max/MLMI/Unsupervised-Structured-Reporting-via-Cycle-Consistency/experiments/"
-env_settings.CUDA_VISIBLE_DEVICES = 0
+env_settings.CUDA_VISIBLE_DEVICES = 1
 env_settings.MASTER_LIST = {
     "ones": "/home/guests/usr_mlmi/arda/Unsupervised-Structured-Reporting-via-Cycle-Consistency/src/data/master_df_ones.csv",
     #"ones": "/home/max/MLMI/Unsupervised-Structured-Reporting-via-Cycle-Consistency/src/data/master_df_ones.csv",
