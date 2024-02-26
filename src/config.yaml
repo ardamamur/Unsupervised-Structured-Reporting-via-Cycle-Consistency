@@ -57,7 +57,7 @@ image_discriminator:
 
 report_generator:
   model : 'biovil_t'
-  learning_rate: 0.001
+  learning_rate: 0.01
   optimizer: 'Adam' # AdamW
   weight_decay: 0.001
   decay_epochs : 5
