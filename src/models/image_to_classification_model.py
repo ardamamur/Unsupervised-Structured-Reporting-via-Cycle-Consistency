@@ -71,7 +71,7 @@ class VisionTransformer(nn.Module):
         # print(self.model)
 
     def forward(self, x):
-        x = self.model.forward(x).projected_global_embedding
+        x = self.model.forward(x).img_embedding
         # Check if normalization is needed
         x = torch.nn.functional.normalize(x, dim=1)
         return x
@@ -109,7 +109,7 @@ class BioVILModel(pl.LightningModule):
 
     def forward(self, x):
         # Pass the input through the underlying model
-        x = self.vision_transformer(x)
+        x = self.vision_transformer(x).
         x = self.classification_head(x)
         return x
 
