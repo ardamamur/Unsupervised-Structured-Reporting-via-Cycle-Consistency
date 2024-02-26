@@ -109,7 +109,7 @@ class BioVILModel(pl.LightningModule):
 
     def forward(self, x):
         # Pass the input through the underlying model
-        x = self.vision_transformer(x).
+        x = self.vision_transformer(x)
         x = self.classification_head(x)
         return x
 
@@ -138,6 +138,11 @@ class BioVILModel(pl.LightningModule):
             'overall_precision': []
         }
 
+    def log_val_metrics(self, metrics, on_step):
+        # log the metrics
+        metrics = {f'{self.phase}_{key}': value for key, value in metrics.items()}
+        self.log_dict(metrics, on_step=on_step, on_epoch=True, prog_bar=True)
+        
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr, betas=(0.9, 0.999))
         scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.1)
